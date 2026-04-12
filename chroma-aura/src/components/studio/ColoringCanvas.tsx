@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from "react";
+import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
 export interface ColoringCanvasRef {
@@ -8,6 +8,8 @@ export interface ColoringCanvasRef {
   redo: () => void;
   clear: () => void;
   download: () => void;
+  getCanvasData: () => string;
+  loadCanvasData: (dataUrl: string) => Promise<void>;
 }
 
 interface ColoringCanvasProps {
@@ -110,15 +112,18 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
       const ctx = contextRef.current;
       if (!canvas || !ctx) return;
 
+      const dpr = window.devicePixelRatio || 1;
       ctx.fillStyle = "white";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
       
       if (imageUrl) {
         const img = new Image();
         img.crossOrigin = "anonymous";
         img.onload = () => {
-          const dpr = window.devicePixelRatio || 1;
-          ctx.drawImage(img, 0, 0, canvas.width / dpr, canvas.height / dpr);
+          const scale = Math.min(artboardWidth / img.width, artboardHeight / img.height);
+          const x = (artboardWidth - img.width * scale) / 2;
+          const y = (artboardHeight - img.height * scale) / 2;
+          ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
           saveState();
         };
         img.src = imageUrl;
@@ -134,6 +139,37 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
       link.download = `chroma-aura-${Date.now()}.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
+    },
+    getCanvasData: () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return "";
+      return canvas.toDataURL("image/png");
+    },
+    loadCanvasData: async (dataUrl: string) => {
+      const canvas = canvasRef.current;
+      const ctx = contextRef.current;
+      if (!canvas || !ctx) return;
+
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => {
+          ctx.clearRect(0, 0, artboardWidth, artboardHeight);
+          ctx.fillStyle = "white";
+          ctx.fillRect(0, 0, artboardWidth, artboardHeight);
+          
+          const scale = Math.min(artboardWidth / img.width, artboardHeight / img.height);
+          const x = (artboardWidth - img.width * scale) / 2;
+          const y = (artboardHeight - img.height * scale) / 2;
+          ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+          
+          saveState();
+          resolve();
+        };
+        img.onerror = reject;
+        img.src = dataUrl;
+      });
     }
   }), [history, redoStack, imageUrl, saveState]);
 
@@ -153,8 +189,6 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
       ctx.scale(dpr, dpr);
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
-      ctx.strokeStyle = color;
-      ctx.lineWidth = brushSize;
       contextRef.current = ctx;
 
       // Fill with white background initially
@@ -166,7 +200,10 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
         const img = new Image();
         img.crossOrigin = "anonymous";
         img.onload = () => {
-          ctx.drawImage(img, 0, 0, artboardWidth, artboardHeight);
+          const scale = Math.min(artboardWidth / img.width, artboardHeight / img.height);
+          const x = (artboardWidth - img.width * scale) / 2;
+          const y = (artboardHeight - img.height * scale) / 2;
+          ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
           saveState(); 
         };
         img.src = imageUrl;
@@ -174,7 +211,7 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
         saveState();
       }
     }
-  }, [artboardWidth, artboardHeight]); // Re-init on size change
+  }, [artboardWidth, artboardHeight, imageUrl, saveState]); // Re-init correctly on size or image change
 
   // Update context when tool/color/brushSize changes
   useEffect(() => {
@@ -218,8 +255,15 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
       return;
     }
 
-    contextRef.current?.beginPath();
-    contextRef.current?.moveTo(artboardX, artboardY);
+    const ctx = contextRef.current;
+    if (ctx) {
+      ctx.beginPath();
+      ctx.moveTo(artboardX, artboardY);
+      // Draw a dot immediately for feedback on click
+      ctx.lineTo(artboardX, artboardY);
+      ctx.stroke();
+    }
+    
     setIsDrawing(true);
   };
 
@@ -351,24 +395,58 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
   };
 
   // Scale brushSize from artboard space to display space for cursor rendering
+  // Scale brushSize from artboard space to display space for cursor rendering
   const displayBrushSize = displaySize.width > 0
     ? brushSize * (displaySize.width / artboardWidth)
     : brushSize;
+
+  // Dynamic SVG Syringe Cursor that reflects active color and ensures visibility on all backgrounds
+  const SYRINGE_CURSOR = useMemo(() => {
+    // We use a dual-stroke technique: a white outer stroke for dark backgrounds, 
+    // and a black inner stroke for light backgrounds.
+    const svg = `
+      <svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24'>
+        /* White outer glow for contrast */
+        <path d='m18 2 4 4' stroke='white' stroke-width='4' stroke-linecap='round'/>
+        <path d='m17 7 3-3' stroke='white' stroke-width='4' stroke-linecap='round'/>
+        <path d='M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5' stroke='white' stroke-width='4' stroke-linecap='round'/>
+        <path d='m9 11 4 4' stroke='white' stroke-width='4' stroke-linecap='round'/>
+        <path d='m5 19-3 3' stroke='white' stroke-width='4' stroke-linecap='round'/>
+        
+        /* Main black outlines */
+        <path d='m18 2 4 4' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/>
+        <path d='m17 7 3-3' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/>
+        <path d='M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/>
+        <path d='m9 11 4 4' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/>
+        <path d='m5 19-3 3' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/>
+        <path d='m14 4 6 6' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/>
+
+        /* THE COLOR LIQUID: This path represents the inside of the syringe */
+        <path d='M15.5 8.5 L9.5 14.5' stroke='${color}' stroke-width='3' stroke-linecap='butt' opacity='0.8'/>
+      </svg>
+    `.trim().replace(/\n/g, "").replace(/"/g, "'").replace(/#/g, "%23");
+    
+    return `url("data:image/svg+xml,${svg}") 3 29, auto`;
+  }, [color]);
 
   return (
     <div
       ref={containerRef}
       className={cn(
         "w-full h-full flex items-center justify-center bg-icon-bg/20 overflow-hidden relative",
-        showCursor && tool !== "bucket" ? "cursor-none" : "cursor-crosshair"
+        showCursor && tool !== "bucket" ? "cursor-none" : ""
       )}
+      style={{
+        cursor: tool === "bucket" ? SYRINGE_CURSOR : undefined
+      }}
     >
       <div
         className="relative bg-white shadow-[0_0_50px_rgba(0,0,0,0.1)] border border-border-subtle overflow-hidden flex-shrink-0"
         style={{
           width: displaySize.width > 0 ? `${displaySize.width}px` : "100%",
           height: displaySize.height > 0 ? `${displaySize.height}px` : "100%",
-          transition: "width 0.3s ease-out, height 0.3s ease-out"
+          transition: "width 0.3s ease-out, height 0.3s ease-out",
+          cursor: tool === "bucket" ? SYRINGE_CURSOR : "none"
         }}
       >
         <canvas

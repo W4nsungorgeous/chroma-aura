@@ -9,7 +9,8 @@ import {
   Redo2, 
   Download, 
   Sparkles,
-  RotateCcw
+  RotateCcw,
+  Save
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +27,7 @@ interface ToolbarProps {
   onDownload?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
-  onAiAssist?: () => void;
+  onSave?: () => void;
 }
 
 const PRESET_COLORS = [
@@ -55,7 +56,7 @@ export default function Toolbar({
   onDownload,
   onUndo,
   onRedo,
-  onAiAssist
+  onSave
 }: ToolbarProps) {
   const [isCustom, setIsCustom] = (require("react") as any).useState(false);
 
@@ -110,13 +111,13 @@ export default function Toolbar({
               key={c}
               onClick={() => setColor(c)}
               className={cn(
-                "w-8 h-8 rounded-full border-2 transition-all hover:scale-110",
+                "w-8 h-8 rounded-full border-2 transition-all hover:scale-110 cursor-pointer active:scale-90",
                 currentColor === c ? "border-primary scale-110 shadow-lg" : "border-border-subtle"
               )}
               style={{ backgroundColor: c }}
             />
           ))}
-          <label className="w-8 h-8 rounded-full border-2 border-border-subtle flex items-center justify-center cursor-pointer hover:bg-icon-bg text-foreground">
+          <label className="w-8 h-8 rounded-full border-2 border-border-subtle flex items-center justify-center cursor-pointer hover:bg-icon-bg text-foreground active:scale-90 transition-all">
              <Palette className="w-4 h-4" />
              <input 
                type="color" 
@@ -170,7 +171,7 @@ export default function Toolbar({
                 key={r.label}
                 onClick={() => handleRatioClick(r)}
                 className={cn(
-                  "py-2 rounded-xl border text-[10px] font-bold transition-all",
+                  "py-2 rounded-xl border text-[10px] font-bold transition-all cursor-pointer active:scale-95",
                   canvasSize.ratio === r.label ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-icon-bg border-border-subtle text-text-muted hover:border-primary/50"
                 )}
               >
@@ -226,23 +227,23 @@ export default function Toolbar({
 
       {/* Actions */}
       <div className="space-y-3">
-        <button 
-          onClick={onAiAssist}
-          className="w-full py-4 rounded-2xl bg-iridescent text-white font-bold flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/20"
-        >
-          <Sparkles className="w-5 h-5" />
-          AI Auto-Color
-        </button>
+        <div className="grid grid-cols-2 gap-3">
+          <ActionButton onClick={onUndo} icon={<Undo2 className="w-4 h-4" />} label="Undo" />
+          <ActionButton onClick={onRedo} icon={<Redo2 className="w-4 h-4" />} label="Redo" />
+        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <ActionButton onClick={onClear} icon={<RotateCcw className="w-4 h-4" />} label="Clear" />
           <ActionButton onClick={onDownload} icon={<Download className="w-4 h-4" />} label="Export" />
         </div>
-        
-        <div className="grid grid-cols-2 gap-3">
-          <ActionButton onClick={onUndo} icon={<Undo2 className="w-4 h-4" />} label="Undo" />
-          <ActionButton onClick={onRedo} icon={<Redo2 className="w-4 h-4" />} label="Redo" />
-        </div>
+
+        <button 
+          onClick={onSave}
+          className="w-full py-4 rounded-2xl bg-primary text-white font-bold flex items-center justify-center gap-2 hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] cursor-pointer transition-all shadow-xl shadow-primary/30 group"
+        >
+          <Save className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          Save Project
+        </button>
       </div>
     </div>
   );
@@ -253,7 +254,7 @@ function ToolButton({ active, onClick, icon, label }: { active: boolean; onClick
     <button
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center justify-center gap-2 p-3 rounded-2xl transition-all border",
+        "flex flex-col items-center justify-center gap-2 p-3 rounded-2xl transition-all border cursor-pointer active:scale-95",
         active 
           ? "bg-primary text-white border-primary shadow-lg shadow-primary/30 scale-105" 
           : "bg-icon-bg text-text-muted border-border-subtle hover:bg-icon-bg/50 hover:text-foreground"
@@ -271,7 +272,7 @@ function ActionButton({ onClick, icon, label, disabled = false }: { onClick?: ()
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all border",
+        "flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all border cursor-pointer active:scale-95",
         disabled 
           ? "opacity-30 cursor-not-allowed border-border-subtle" 
           : "bg-icon-bg border-border-subtle hover:bg-icon-bg/50 text-foreground/70 hover:text-foreground active:scale-95"

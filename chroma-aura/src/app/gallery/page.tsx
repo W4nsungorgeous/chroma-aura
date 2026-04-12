@@ -5,15 +5,89 @@ import Footer from "@/components/layout/Footer";
 import { motion } from "framer-motion";
 import { Library, Sparkles, User, Heart, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 const SAMPLES = [
-  { title: "Neon Cyberpunk City", artist: "AuraArtist", likes: 124, color: "bg-purple-500" },
-  { title: "Mystic Forest Spirits", artist: "ZenColors", likes: 89, color: "bg-emerald-500" },
-  { title: "Space Explorer Kitty", artist: "StellarCat", likes: 256, color: "bg-blue-500" },
-  { title: "Golden Dragon Temple", artist: "MythicMina", likes: 167, color: "bg-amber-500" },
+  { 
+    title: "Mandala Butterfly", 
+    artist: "AuraArtist", 
+    likes: 124, 
+    lineart: "/ai/latest_lineart.png", 
+    colored: "/ai/latest_autocolor.png",
+    tag: "Nature",
+    filter: ""
+  },
+  { 
+    title: "Anime Neon Soul", 
+    artist: "ZenColors", 
+    likes: 89, 
+    lineart: "/ai/latest_lineart.png", 
+    colored: "/ai/latest_autocolor.png",
+    tag: "Anime",
+    filter: "contrast-150 saturate-200 hue-rotate-180" 
+  },
+  { 
+    title: "Golden Mythic Wings", 
+    artist: "MythicMina", 
+    likes: 167, 
+    lineart: "/ai/latest_lineart.png", 
+    colored: "/ai/latest_autocolor.png",
+    tag: "Fantasy",
+    filter: "sepia brightness-90 contrast-125 saturate-50"
+  },
+  { 
+    title: "Cyber City Monarch", 
+    artist: "StellarCat", 
+    likes: 256, 
+    lineart: "/ai/latest_lineart.png", 
+    colored: "/ai/latest_autocolor.png",
+    tag: "Cyberpunk",
+    filter: "invert-10 hue-rotate-90 brightness-110"
+  },
+  { 
+    title: "Steampunk Core", 
+    artist: "SteamMaster", 
+    likes: 312, 
+    lineart: "/ai/latest_lineart.png", 
+    colored: "/ai/latest_autocolor.png",
+    tag: "Steampunk",
+    filter: "brightness-75 contrast-150 sepia(0.8) hue-rotate-[-30deg]"
+  },
+  { 
+    title: "Ukiyo-e Legacy", 
+    artist: "WaveRunner", 
+    likes: 204, 
+    lineart: "/ai/latest_lineart.png", 
+    colored: "/ai/latest_autocolor.png",
+    tag: "Traditional",
+    filter: "contrast-90 saturate-50 sepia-20 brightness-105"
+  },
+  { 
+    title: "Bioluminescent Rift", 
+    artist: "NeonDeep", 
+    likes: 421, 
+    lineart: "/ai/latest_lineart.png", 
+    colored: "/ai/latest_autocolor.png",
+    tag: "Deep Sea",
+    filter: "invert saturate-150 hue-rotate-200"
+  },
+  { 
+    title: "Midnight Cathedral", 
+    artist: "Nightshade", 
+    likes: 156, 
+    lineart: "/ai/latest_lineart.png", 
+    colored: "/ai/latest_autocolor.png",
+    tag: "Gothic",
+    filter: "grayscale brightness-50 contrast-200"
+  },
 ];
 
 export default function GalleryPage() {
+  const router = useRouter();
+
+  const handleRemix = (lineartUrl: string) => {
+    router.push(`/studio?lineart=${encodeURIComponent(lineartUrl)}`);
+  };
   return (
     <main className="min-h-screen bg-background flex flex-col pt-32">
       <Navbar />
@@ -53,20 +127,70 @@ export default function GalleryPage() {
               transition={{ delay: i * 0.1 }}
               className="group cursor-pointer"
             >
-              <div className="aspect-[3/4] rounded-[32px] overflow-hidden bg-icon-bg relative mb-4 border border-border-subtle transition-all group-hover:shadow-2xl group-hover:shadow-primary/10 group-hover:-translate-y-2">
-                <div className={cn("absolute inset-0 opacity-20 transition-transform duration-700 group-hover:scale-110", sample.color)} />
-                <div className="absolute inset-0 flex items-center justify-center p-8">
-                   <div className="w-full h-full border-4 border-dashed border-foreground/10 rounded-2xl flex items-center justify-center">
-                      <Sparkles className="w-12 h-12 text-foreground/20 group-hover:rotate-12 transition-transform" />
-                   </div>
-                </div>
-                
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-6">
-                   <div className="flex gap-3">
-                      <button className="flex-1 py-2.5 rounded-xl bg-white/20 backdrop-blur-md text-white text-xs font-bold hover:bg-white/30 transition-all">Remix</button>
-                      <button className="p-2.5 rounded-xl bg-white/20 backdrop-blur-md text-white hover:bg-white/30 transition-all"><Share2 className="w-4 h-4" /></button>
-                   </div>
-                </div>
+              <div className="aspect-[3/4] p-4 relative mb-6 group cursor-pointer" style={{ perspective: "1200px" }}>
+                {/* 
+                   Poker-Style Shuffle System:
+                   - Lineart (Front, slides out-left on hover)
+                   - Colored (Back, snaps to center on hover)
+                */}
+
+                {/* Layer 1: Colored Masterpiece (Pre-loaded behind) */}
+                <motion.div 
+                  initial={{ zIndex: 10, scale: 0.9, x: 40, y: 20, rotate: 6, opacity: 0.4 }}
+                  whileHover={{ zIndex: 30, scale: 1.05, x: 0, y: 0, rotate: 0, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                  className="absolute inset-4 rounded-[28px] overflow-hidden shadow-2xl border border-white/20 bg-background z-10"
+                >
+                  <img 
+                    src={sample.colored} 
+                    alt="Colored" 
+                    className={cn("w-full h-full object-cover transition-all duration-700", sample.filter)} 
+                  />
+                  
+                  {/* Overlay Actions (Visible only on top) */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-8">
+                    <div className="flex gap-4">
+                      <button 
+                        onClick={() => handleRemix(sample.lineart)}
+                        className="flex-1 py-3.5 rounded-2xl bg-primary text-white text-sm font-bold shadow-xl shadow-primary/20 hover:scale-105 transition-all"
+                      >
+                        Remix
+                      </button>
+                      <button className="p-3.5 rounded-2xl bg-white/20 backdrop-blur-md text-white hover:bg-white/30 transition-all"><Share2 className="w-5 h-5" /></button>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Layer 2: Lineart Draft (Initially front) */}
+                <motion.div 
+                  initial={{ zIndex: 20, scale: 1, x: 0, y: 0, rotate: -3, opacity: 1 }}
+                  whileHover={{ 
+                    zIndex: 5, 
+                    x: -140, 
+                    y: -10,
+                    rotate: -12, 
+                    rotateY: -35,
+                    scale: 0.8, 
+                    opacity: 0 
+                  }}
+                  transition={{ type: "spring", stiffness: 260, damping: 25 }}
+                  className="absolute inset-4 rounded-[28px] overflow-hidden border border-border-subtle bg-white shadow-xl z-20"
+                >
+                  <img src={sample.lineart} alt="Lineart" className="w-full h-full object-cover grayscale brightness-110" />
+                  
+                  {/* "Draft" Badge */}
+                  <div className="absolute top-5 left-5 px-4 py-1.5 rounded-full bg-black/5 backdrop-blur-sm border border-black/10 text-[10px] font-bold text-black/40 uppercase tracking-[0.2em]">
+                    Original Draft
+                  </div>
+                </motion.div>
+
+                {/* Global Tag */}
+                <motion.div 
+                  className="absolute top-8 right-8 z-40 px-4 py-1.5 rounded-full glass border-white/20 text-[10px] font-bold text-white shadow-xl pointer-events-none uppercase tracking-widest"
+                  whileHover={{ scale: 1.1 }}
+                >
+                  {sample.tag}
+                </motion.div>
               </div>
               
               <div className="px-2">
@@ -85,14 +209,6 @@ export default function GalleryPage() {
                 </div>
               </div>
             </motion.div>
-          ))}
-          
-          {/* Empty placeholders */}
-          {[1, 2, 3, 4].map((i) => (
-            <div key={`empty-${i}`} className="aspect-[3/4] rounded-[32px] border-2 border-dashed border-border-subtle bg-icon-bg/30 flex flex-col items-center justify-center p-8 text-center gap-4 opacity-50">
-               <div className="w-12 h-12 rounded-full border-2 border-dashed border-border-subtle" />
-               <div className="h-4 w-24 bg-border-subtle rounded-full" />
-            </div>
           ))}
         </div>
         

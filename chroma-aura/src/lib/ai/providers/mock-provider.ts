@@ -1,26 +1,52 @@
-import { AIProvider, AIResponse } from "../interface";
+import { AIProvider, AIResponse, EnhanceResponse } from "../interface";
 
 export class MockProvider implements AIProvider {
-  name = "Mock (Dev Mode)";
+  name = "Antigravity (Local Mode)";
 
-  private samples = [
-    "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=1000", // Cyberpunk style
-    "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&q=80&w=1000", // Abstract/Mandala
-    "https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?auto=format&fit=crop&q=80&w=1000", // Fantasy
-    "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?auto=format&fit=crop&q=80&w=1000", // Nature/Patterns
+  private modifiers = [
+    "highly detailed lineart",
+    "coloring book style",
+    "sharp clean outlines",
+    "intricate patterns",
+    "professional illustration",
+    "white background",
+    "no shading",
+    "8k resolution"
   ];
 
   async generateLineart(prompt: string): Promise<AIResponse> {
-    // Simulate latency
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    // Simulate latency for "AI Generation"
+    await new Promise((resolve) => setTimeout(resolve, 3000));
 
-    // Choose a random sample
-    const randomSample = this.samples[Math.floor(Math.random() * this.samples.length)];
-
+    // For local dev, we point to a specific file that the Assistant will fulfill
+    const timestamp = Date.now();
     return {
-      imageUrl: randomSample,
-      revisedPrompt: `A professional lineart of ${prompt}, intricate details, coloring book style.`,
+      imageUrl: `/ai/latest_lineart.png?t=${timestamp}`,
+      revisedPrompt: `A professional lineart of ${prompt}, ${this.modifiers.join(", ")}`,
       success: true,
+    };
+  }
+
+  async enhancePrompt(prompt: string): Promise<EnhanceResponse> {
+    // Simulate latency
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    const enhanced = `${prompt}, ${this.modifiers.slice(0, 4).join(", ")}, ultra-fine borders, perfect for children and adults coloring.`;
+    
+    return {
+      enhanced,
+      success: true
+    };
+  }
+
+  async autoColor(imageUrl: string): Promise<AIResponse> {
+    // Simulate latency for "AI Vision & Painting"
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+
+    const timestamp = Date.now();
+    return {
+      imageUrl: `/ai/latest_autocolor.png?t=${timestamp}`,
+      success: true
     };
   }
 }

@@ -53,13 +53,13 @@ export default function Navbar() {
           
           <Show when="signed-out">
             <SignInButton mode="modal">
-              <button className="hidden sm:flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-all">
+              <button className="hidden sm:flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-all cursor-pointer active:scale-95">
                 <User className="w-4 h-4" />
                 <span>Login</span>
               </button>
             </SignInButton>
             <SignUpButton mode="modal">
-              <button className="bg-iridescent px-6 py-2.5 rounded-xl font-bold text-white shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
+              <button className="bg-iridescent px-6 py-2.5 rounded-xl font-bold text-white shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 cursor-pointer transition-all">
                 Get Started
               </button>
             </SignUpButton>
@@ -75,7 +75,7 @@ export default function Navbar() {
             />
           </Show>
 
-          <button className="md:hidden p-2 text-slate-600 hover:text-primary">
+          <button className="md:hidden p-2 text-slate-600 hover:text-primary cursor-pointer active:scale-95 transition-all">
             <Menu className="w-6 h-6" />
           </button>
         </div>
