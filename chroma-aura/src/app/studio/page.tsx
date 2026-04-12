@@ -34,9 +34,12 @@ export default function StudioPage() {
   const [brushSize, setBrushSize] = useState(10);
   const [isGenerating, setIsGenerating] = useState(false);
   const [prompt, setPrompt] = useState("");
+  const [generatedImage, setGeneratedImage] = useState<string | undefined>(undefined);
+  const [canvasSize, setCanvasSize] = useState({ width: 1024, height: 1024, ratio: "1:1" });
   const canvasRef = useRef<ColoringCanvasRef>(null);
 
   const { 
+    tier,
     generationQuota, 
     drawingQuota, 
     decrementGeneration, 
@@ -60,7 +63,7 @@ export default function StudioPage() {
     setPrompt(enhanced);
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!prompt) return;
     
     // Check quota
@@ -69,34 +72,60 @@ export default function StudioPage() {
       return;
     }
 
-    if (!decrementGeneration()) return;
-
     setIsGenerating(true);
-    // Simulate AI generation delay
-    setTimeout(() => {
+
+    try {
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Only decrement quota on success
+        if (decrementGeneration()) {
+          setGeneratedImage(data.imageUrl);
+          setPrompt("");
+        }
+      } else {
+        alert("AI Generation failed: " + (data.error || "Unknown error"));
+      }
+    } catch (error) {
+      console.error("Generation error:", error);
+      alert("Failed to connect to AI service.");
+    } finally {
       setIsGenerating(false);
-      setPrompt("");
-    }, 3000);
+    }
   };
 
   return (
-    <main className="min-h-screen bg-background flex flex-col overflow-hidden">
+    <main className="h-screen bg-background flex flex-col overflow-hidden">
       <Navbar />
 
-      <div className="flex-1 flex pt-28 px-6 pb-6 gap-6 max-w-[1600px] mx-auto w-full">
+      <div className="flex-1 h-0 flex pt-28 px-6 pb-6 gap-6 max-w-[1600px] mx-auto w-full overflow-hidden">
         {/* Left Sidebar: AI Control Panel */}
-        <aside className="w-80 flex flex-col gap-6">
+        <aside className="w-80 flex-shrink-0 flex flex-col gap-6">
           {/* Quota Status */}
           <div className="glass p-5 rounded-3xl border-border-subtle space-y-3 bg-icon-bg">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-text-muted uppercase tracking-wider">Guest Quota</span>
-              <span className="px-2 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-bold">Limited</span>
+              <span className="text-xs font-bold text-text-muted uppercase tracking-wider">{tier} Status</span>
+              <span className={cn(
+                "px-2 py-0.5 rounded-full text-[10px] font-bold",
+                tier === "vip" ? "bg-amber-400/20 text-amber-500" : 
+                tier === "member" ? "bg-primary/20 text-primary" : "bg-slate-500/20 text-text-muted"
+              )}>
+                {tier === "vip" ? "VIP Artist" : tier === "member" ? "Pro Member" : "Guest"}
+              </span>
             </div>
             
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-foreground font-medium">AI Generations</span>
-                <span className="font-mono font-bold text-foreground">{generationQuota.limit - generationQuota.used}/{generationQuota.limit}</span>
+                <span className="font-mono font-bold text-foreground">
+                  {tier === "vip" ? "Unlimited" : `${generationQuota.limit - generationQuota.used}/${generationQuota.limit}`}
+                </span>
               </div>
               <div className="w-full h-1 bg-icon-bg rounded-full overflow-hidden">
                 <div 
@@ -107,12 +136,14 @@ export default function StudioPage() {
 
               <div className="flex items-center justify-between text-sm pt-1">
                 <span className="text-foreground font-medium">Drawing Actions</span>
-                <span className="font-mono font-bold text-foreground">{drawingQuota.limit - drawingQuota.used}/{drawingQuota.limit}</span>
+                <span className="font-mono font-bold text-foreground">
+                   {tier === "vip" ? "Unlimited" : `${drawingQuota.limit - drawingQuota.used}/${drawingQuota.limit}`}
+                </span>
               </div>
               <div className="w-full h-1 bg-icon-bg rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-blue-400 transition-all duration-500" 
-                  style={{ width: `${((drawingQuota.limit - drawingQuota.used) / drawingQuota.limit) * 100}%` }}
+                  className={cn("h-full transition-all duration-500", tier === "vip" ? "bg-amber-400" : "bg-blue-400")}
+                  style={{ width: `${tier === "vip" ? 100 : ((drawingQuota.limit - drawingQuota.used) / drawingQuota.limit) * 100}%` }}
                 />
               </div>
             </div>
@@ -234,12 +265,15 @@ export default function StudioPage() {
         </aside>
 
         {/* Center: Main Canvas Area */}
-        <div className="flex-1 relative glass rounded-[40px] border-border-subtle p-4 shadow-[0_0_80px_rgba(0,0,0,0.05)] dark:shadow-[0_0_100px_rgba(0,0,0,0.5)]">
+        <div className="flex-1 min-w-0 min-h-0 relative glass rounded-[40px] border-border-subtle p-4 shadow-[0_0_80px_rgba(0,0,0,0.05)] dark:shadow-[0_0_100px_rgba(0,0,0,0.5)] overflow-hidden">
            <ColoringCanvas 
              ref={canvasRef}
              tool={tool}
              color={color}
              brushSize={brushSize}
+             width={canvasSize.width}
+             height={canvasSize.height}
+             imageUrl={generatedImage}
              onAction={decrementDrawing}
              isDisabled={drawingQuota.used >= drawingQuota.limit}
            />
@@ -294,7 +328,7 @@ export default function StudioPage() {
         </div>
 
         {/* Right Sidebar: Tools */}
-        <aside className="w-72">
+        <aside className="w-72 flex-shrink-0">
           <Toolbar 
             currentTool={tool}
             setTool={setTool}
@@ -302,6 +336,8 @@ export default function StudioPage() {
             setColor={setColor}
             brushSize={brushSize}
             setBrushSize={setBrushSize}
+            canvasSize={canvasSize}
+            setCanvasSize={setCanvasSize}
             onUndo={() => canvasRef.current?.undo()}
             onRedo={() => canvasRef.current?.redo()}
             onClear={() => canvasRef.current?.clear()}

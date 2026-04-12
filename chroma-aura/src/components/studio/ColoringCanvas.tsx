@@ -14,6 +14,8 @@ interface ColoringCanvasProps {
   tool: "brush" | "bucket" | "eraser";
   color: string;
   brushSize: number;
+  width: number;
+  height: number;
   imageUrl?: string;
   onUndo?: () => void;
   onRedo?: () => void;
@@ -25,17 +27,48 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
   tool,
   color,
   brushSize,
+  width: artboardWidth,
+  height: artboardHeight,
   imageUrl,
   onAction,
   isDisabled = false,
 }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [history, setHistory] = useState<ImageData[]>([]);
   const [redoStack, setRedoStack] = useState<ImageData[]>([]);
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
   const [showCursor, setShowCursor] = useState(false);
+  const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
+
+  // ResizeObserver: compute display size to fit the artboard aspect ratio within container
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateDisplaySize = () => {
+      const { width: cw, height: ch } = container.getBoundingClientRect();
+      if (cw === 0 || ch === 0) return;
+      const artboardRatio = artboardWidth / artboardHeight;
+      const containerRatio = cw / ch;
+      let displayWidth: number, displayHeight: number;
+      if (containerRatio > artboardRatio) {
+        displayHeight = ch;
+        displayWidth = displayHeight * artboardRatio;
+      } else {
+        displayWidth = cw;
+        displayHeight = displayWidth / artboardRatio;
+      }
+      setDisplaySize({ width: displayWidth, height: displayHeight });
+    };
+
+    const observer = new ResizeObserver(updateDisplaySize);
+    observer.observe(container);
+    updateDisplaySize();
+    return () => observer.disconnect();
+  }, [artboardWidth, artboardHeight]);
 
   const saveState = useCallback(() => {
     const canvas = canvasRef.current;
@@ -84,7 +117,8 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
         const img = new Image();
         img.crossOrigin = "anonymous";
         img.onload = () => {
-          ctx.drawImage(img, 0, 0, canvas.width / (window.devicePixelRatio || 1), canvas.height / (window.devicePixelRatio || 1));
+          const dpr = window.devicePixelRatio || 1;
+          ctx.drawImage(img, 0, 0, canvas.width / dpr, canvas.height / dpr);
           saveState();
         };
         img.src = imageUrl;
@@ -103,54 +137,44 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
     }
   }), [history, redoStack, imageUrl, saveState]);
 
-  // Initialize canvas
+  // Initialize canvas when props or artboard dimensions change
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Set canvas dimensions based on parent container
-    const resizeCanvas = () => {
-      const container = canvas.parentElement;
-      if (!container) return;
-      
-      const { width, height } = container.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
+    const dpr = window.devicePixelRatio || 1;
+    
+    // Set internal resolution only; CSS display size is handled by displaySize state
+    canvas.width = artboardWidth * dpr;
+    canvas.height = artboardHeight * dpr;
 
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      if (ctx) {
-        ctx.scale(dpr, dpr);
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        ctx.strokeStyle = color;
-        ctx.lineWidth = brushSize;
-        contextRef.current = ctx;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (ctx) {
+      ctx.scale(dpr, dpr);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = color;
+      ctx.lineWidth = brushSize;
+      contextRef.current = ctx;
 
-        // Fill with white background initially
-        ctx.fillStyle = "white";
-        ctx.fillRect(0, 0, width, height);
+      // Fill with white background initially
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, artboardWidth, artboardHeight);
 
-        // Load image if provided
-        if (imageUrl) {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.onload = () => {
-            ctx.drawImage(img, 0, 0, width, height);
-            saveState(); // Initial state
-          };
-          img.src = imageUrl;
-        }
+      // Load image if provided
+      if (imageUrl) {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, artboardWidth, artboardHeight);
+          saveState(); 
+        };
+        img.src = imageUrl;
+      } else {
+        saveState();
       }
-    };
-
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
-    return () => window.removeEventListener("resize", resizeCanvas);
-  }, []);
+    }
+  }, [artboardWidth, artboardHeight]); // Re-init on size change
 
   // Update context when tool/color/brushSize changes
   useEffect(() => {
@@ -160,9 +184,10 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
     }
   }, [color, brushSize, tool]);
 
+  // Returns both display-space (for cursor) and artboard-space (for canvas drawing) coordinates
   const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
+    if (!canvas) return { displayX: 0, displayY: 0, artboardX: 0, artboardY: 0 };
 
     const rect = canvas.getBoundingClientRect();
     let clientX, clientY;
@@ -175,32 +200,35 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
       clientY = e.clientY;
     }
 
-    return {
-      x: clientX - rect.left,
-      y: clientY - rect.top,
-    };
+    const displayX = clientX - rect.left;
+    const displayY = clientY - rect.top;
+    // Scale from display space to artboard space
+    const artboardX = displayX * (artboardWidth / rect.width);
+    const artboardY = displayY * (artboardHeight / rect.height);
+
+    return { displayX, displayY, artboardX, artboardY };
   };
 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
     if (isDisabled) return;
-    const { x, y } = getCoordinates(e);
+    const { artboardX, artboardY } = getCoordinates(e);
 
     if (tool === "bucket") {
-      handleFloodFill(x, y);
+      handleFloodFill(artboardX, artboardY);
       return;
     }
 
     contextRef.current?.beginPath();
-    contextRef.current?.moveTo(x, y);
+    contextRef.current?.moveTo(artboardX, artboardY);
     setIsDrawing(true);
   };
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
-    const { x, y } = getCoordinates(e);
-    setCursorPos({ x, y });
-    
+    const { displayX, displayY, artboardX, artboardY } = getCoordinates(e);
+    setCursorPos({ x: displayX, y: displayY }); // cursor stays in display space
+
     if (!isDrawing || tool === "bucket") return;
-    contextRef.current?.lineTo(x, y);
+    contextRef.current?.lineTo(artboardX, artboardY);
     contextRef.current?.stroke();
   };
 
@@ -322,46 +350,63 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
     return [r, g, b];
   };
 
-  return (
-    <div className={cn(
-      "w-full h-full relative touch-none overflow-hidden rounded-2xl bg-white shadow-2xl",
-      showCursor && tool !== "bucket" ? "cursor-none" : "cursor-crosshair"
-    )}>
-      <canvas
-        ref={canvasRef}
-        onMouseDown={startDrawing}
-        onMouseMove={draw}
-        onMouseUp={stopDrawing}
-        onMouseEnter={() => setShowCursor(true)}
-        onMouseLeave={() => {
-          stopDrawing();
-          setShowCursor(false);
-        }}
-        onTouchStart={(e) => {
-          setShowCursor(true);
-          startDrawing(e);
-        }}
-        onTouchMove={draw}
-        onTouchEnd={() => {
-          stopDrawing();
-          setShowCursor(false);
-        }}
-        className="touch-none"
-      />
+  // Scale brushSize from artboard space to display space for cursor rendering
+  const displayBrushSize = displaySize.width > 0
+    ? brushSize * (displaySize.width / artboardWidth)
+    : brushSize;
 
-      {/* Dynamic Brush/Eraser Cursor */}
-      {showCursor && tool !== "bucket" && (
-        <div 
-          className="absolute pointer-events-none rounded-full border border-white mix-blend-difference shadow-sm z-50 transition-transform duration-75 ease-out"
-          style={{
-            width: `${brushSize}px`,
-            height: `${brushSize}px`,
-            left: cursorPos.x,
-            top: cursorPos.y,
-            transform: "translate(-50%, -50%)",
-          }}
-        />
+  return (
+    <div
+      ref={containerRef}
+      className={cn(
+        "w-full h-full flex items-center justify-center bg-icon-bg/20 overflow-hidden relative",
+        showCursor && tool !== "bucket" ? "cursor-none" : "cursor-crosshair"
       )}
+    >
+      <div
+        className="relative bg-white shadow-[0_0_50px_rgba(0,0,0,0.1)] border border-border-subtle overflow-hidden flex-shrink-0"
+        style={{
+          width: displaySize.width > 0 ? `${displaySize.width}px` : "100%",
+          height: displaySize.height > 0 ? `${displaySize.height}px` : "100%",
+          transition: "width 0.3s ease-out, height 0.3s ease-out"
+        }}
+      >
+        <canvas
+          ref={canvasRef}
+          onMouseDown={startDrawing}
+          onMouseMove={draw}
+          onMouseUp={stopDrawing}
+          onMouseEnter={() => setShowCursor(true)}
+          onMouseLeave={() => {
+            stopDrawing();
+            setShowCursor(false);
+          }}
+          onTouchStart={(e) => {
+            setShowCursor(true);
+            startDrawing(e);
+          }}
+          onTouchMove={draw}
+          onTouchEnd={() => {
+            stopDrawing();
+            setShowCursor(false);
+          }}
+          className="w-full h-full touch-none"
+        />
+
+        {/* Dynamic Brush/Eraser Cursor */}
+        {showCursor && tool !== "bucket" && (
+          <div 
+            className="absolute pointer-events-none rounded-full border border-white mix-blend-difference shadow-sm z-50 transition-transform duration-75 ease-[cubic-bezier(0.23,1,0.32,1)]"
+            style={{
+              width: `${displayBrushSize}px`,
+              height: `${displayBrushSize}px`,
+              left: cursorPos.x,
+              top: cursorPos.y,
+              transform: "translate(-50%, -50%)",
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 });
