@@ -12,8 +12,8 @@ interface Quota {
 
 export function useQuota() {
   const [tier, setTier] = useState<UserTier>("guest");
-  const [drawingQuota, setDrawingQuota] = useState<Quota>({ used: 0, limit: 5 });
-  const [generationQuota, setGenerationQuota] = useState<Quota>({ used: 0, limit: 1 });
+  const [drawingQuota, setDrawingQuota] = useState<Quota>({ used: 0, limit: 50 });
+  const [generationQuota, setGenerationQuota] = useState<Quota>({ used: 0, limit: 3 });
   const [deviceId, setDeviceId] = useState<string | null>(null);
 
   useEffect(() => {

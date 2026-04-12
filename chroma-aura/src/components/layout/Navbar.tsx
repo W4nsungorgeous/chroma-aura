@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Sparkles, Palette, Library, User, Menu } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import ThemeToggle from "@/components/ui/ThemeToggle";
+import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -23,15 +25,18 @@ export default function Navbar() {
         isScrolled ? "top-2" : "top-6"
       )}
     >
-      <div className="glass rounded-2xl px-6 py-4 flex items-center justify-between border-white/10 shadow-2xl overflow-hidden relative">
+      <div className="glass rounded-2xl px-6 py-4 flex items-center justify-between border-glass-border shadow-2xl overflow-hidden relative">
         {/* Animated background glow */}
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 opacity-50 blur-xl -z-10 animate-pulse" />
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5 opacity-30 blur-xl -z-10 animate-pulse" />
         
         <Link href="/" className="flex items-center gap-2 group">
           <div className="bg-iridescent p-2 rounded-xl group-hover:scale-110 transition-transform duration-300">
             <Palette className="w-6 h-6 text-white" />
           </div>
-          <span className="text-2xl font-bold font-heading bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
+          <span 
+            className="text-2xl font-bold font-heading bg-clip-text text-transparent"
+            style={{ backgroundImage: 'var(--title-gradient)' }}
+          >
             Chroma Aura
           </span>
         </Link>
@@ -44,14 +49,33 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-4">
-          <button className="hidden sm:flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium bg-white/5 hover:bg-white/10 border border-white/10 transition-all">
-            <User className="w-4 h-4" />
-            <span>Login</span>
-          </button>
-          <button className="bg-iridescent px-6 py-2.5 rounded-xl font-bold text-white shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
-            Get Started
-          </button>
-          <button className="md:hidden p-2 text-white/70 hover:text-white">
+          <ThemeToggle />
+          
+          <Show when="signed-out">
+            <SignInButton mode="modal">
+              <button className="hidden sm:flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-all">
+                <User className="w-4 h-4" />
+                <span>Login</span>
+              </button>
+            </SignInButton>
+            <SignUpButton mode="modal">
+              <button className="bg-iridescent px-6 py-2.5 rounded-xl font-bold text-white shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
+                Get Started
+              </button>
+            </SignUpButton>
+          </Show>
+
+          <Show when="signed-in">
+            <UserButton 
+              appearance={{
+                elements: {
+                  avatarBox: "w-10 h-10 rounded-xl"
+                }
+              }}
+            />
+          </Show>
+
+          <button className="md:hidden p-2 text-slate-600 hover:text-primary">
             <Menu className="w-6 h-6" />
           </button>
         </div>
@@ -64,7 +88,7 @@ function NavLink({ href, icon, label }: { href: string; icon: React.ReactNode; l
   return (
     <Link
       href={href}
-      className="flex items-center gap-2 text-sm font-medium text-white/70 hover:text-white transition-colors relative group"
+      className="flex items-center gap-2 text-sm font-semibold text-text-muted hover:text-primary transition-colors relative group"
     >
       {icon}
       {label}

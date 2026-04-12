@@ -22,7 +22,7 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="bg-slate-950 border-t border-white/5 pt-20 pb-10">
+    <footer className="bg-section-muted border-t border-glass-border pt-20 pb-10">
       <div className="container mx-auto px-6 max-w-7xl">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
           <div className="space-y-6">
@@ -30,9 +30,14 @@ export default function Footer() {
               <div className="bg-iridescent p-2 rounded-xl">
                 <Palette className="w-6 h-6 text-white" />
               </div>
-              <span className="text-2xl font-bold font-heading">Chroma Aura</span>
+              <span 
+                className="text-2xl font-bold font-heading bg-clip-text text-transparent"
+                style={{ backgroundImage: 'var(--title-gradient)' }}
+              >
+                Chroma Aura
+              </span>
             </Link>
-            <p className="text-white/50 text-sm leading-relaxed">
+            <p className="text-text-muted text-sm leading-relaxed opacity-80">
               Empowering creators worldwide with AI-driven coloring experiences. 
               From multi-modal inputs to immersive digital studios.
             </p>
@@ -45,7 +50,7 @@ export default function Footer() {
           </div>
 
           <div>
-             <h4 className="font-bold mb-6 text-white/90">Coloring Categories</h4>
+             <h4 className="font-bold mb-6 text-foreground">Coloring Categories</h4>
              <ul className="space-y-4">
                 {categories.map((cat) => (
                   <li key={cat.slug}>
@@ -56,7 +61,7 @@ export default function Footer() {
           </div>
 
           <div>
-             <h4 className="font-bold mb-6 text-white/90">Popular Styles</h4>
+             <h4 className="font-bold mb-6 text-foreground">Popular Styles</h4>
              <ul className="space-y-4">
                 {styles.map((style) => (
                   <li key={style.slug}>
@@ -67,7 +72,7 @@ export default function Footer() {
           </div>
 
           <div>
-             <h4 className="font-bold mb-6 text-white/90">Support</h4>
+             <h4 className="font-bold mb-6 text-foreground">Support</h4>
              <ul className="space-y-4">
                 <li><FooterLink href="/pricing">Pricing</FooterLink></li>
                 <li><FooterLink href="/about">About Us</FooterLink></li>
@@ -77,7 +82,7 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6 text-white/30 text-xs tracking-wider uppercase font-medium">
+        <div className="pt-10 border-t border-glass-border flex flex-col md:flex-row items-center justify-between gap-6 text-text-muted text-[10px] tracking-wider uppercase font-bold opacity-60">
            <p>© {currentYear} Chroma Aura AI. All rights reserved.</p>
            <div className="flex gap-8">
               <span>Made with ✨ and AI</span>
@@ -93,7 +98,7 @@ function FooterLink({ href, children }: { href: string; children: React.ReactNod
   return (
     <Link 
       href={href} 
-      className="text-white/40 hover:text-primary transition-colors duration-200 block"
+      className="text-text-muted hover:text-primary transition-colors duration-200 block font-medium opacity-80 hover:opacity-100"
     >
       {children}
     </Link>
@@ -104,7 +109,7 @@ function SocialIcon({ icon, href }: { icon: React.ReactNode; href: string }) {
   return (
     <a 
       href={href} 
-      className="w-10 h-10 rounded-full glass flex items-center justify-center hover:bg-white/10 hover:scale-110 active:scale-95 transition-all text-white/60 hover:text-white"
+      className="w-10 h-10 rounded-full glass flex items-center justify-center hover:scale-110 active:scale-95 transition-all text-text-muted hover:text-primary hover:bg-primary/5 shadow-sm"
     >
       {icon}
     </a>

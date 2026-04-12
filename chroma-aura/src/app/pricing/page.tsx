@@ -1,8 +1,9 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import { Check, Sparkles, Zap, Crowdfund, Star, Diamond } from "lucide-react";
+import { Check, Sparkles, Zap, Star, Diamond } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +59,12 @@ const TIERS = [
 ];
 
 export default function PricingPage() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return (
     <main className="min-h-screen bg-background flex flex-col pt-32">
       <Navbar />
@@ -65,15 +72,15 @@ export default function PricingPage() {
       <section className="container mx-auto px-6 max-w-7xl flex-1 flex flex-col justify-center pb-20">
         <div className="text-center mb-20">
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border-white/10 mb-6"
+            initial={mounted ? { opacity: 0, scale: 0.9 } : { opacity: 1, scale: 1 }}
+            animate={mounted ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1 }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border-border-subtle mb-6 shadow-sm"
           >
             <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-white/80">Simple, Transparent Pricing</span>
+            <span className="text-sm font-medium text-foreground/80">Simple, Transparent Pricing</span>
           </motion.div>
           <h1 className="text-5xl md:text-7xl font-bold font-heading mb-6 tracking-tight">Choose your <span className="text-primary italic">Creativity</span> level</h1>
-          <p className="text-xl text-white/50 max-w-2xl mx-auto">
+          <p className="text-xl text-text-muted max-w-2xl mx-auto">
             From free exploration to professional mastery, find the plan that fits your artistic journey.
           </p>
         </div>
@@ -82,8 +89,8 @@ export default function PricingPage() {
           {TIERS.map((tier, i) => (
             <motion.div
               key={tier.name}
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={mounted ? { opacity: 0, y: 30 } : { opacity: 1, y: 0 }}
+              animate={mounted ? { opacity: 1, y: 0 } : { opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
               className={cn(
                 "glass-card p-8 rounded-[40px] flex flex-col group relative",
@@ -97,25 +104,25 @@ export default function PricingPage() {
               )}
               
               <div className="flex items-center justify-between mb-8">
-                 <div className={cn("p-4 rounded-2xl", tier.highlight ? "bg-primary/20" : "bg-white/5")}>
+                 <div className={cn("p-4 rounded-2xl", tier.highlight ? "bg-primary/20" : "bg-icon-bg")}>
                     {tier.icon}
                  </div>
                  <div className="text-right">
-                    <span className="text-4xl font-bold">$</span>
-                    <span className="text-5xl font-black">{tier.price}</span>
-                    <span className="text-white/40 font-medium ml-1">/mo</span>
+                    <span className="text-4xl font-bold text-foreground">$</span>
+                    <span className="text-5xl font-black text-foreground">{tier.price}</span>
+                    <span className="text-text-muted font-medium ml-1">/mo</span>
                  </div>
               </div>
 
-              <h3 className="text-2xl font-bold mb-4 font-heading">{tier.name}</h3>
-              <p className="text-white/50 text-sm mb-8">{tier.description}</p>
+              <h3 className="text-2xl font-bold mb-4 font-heading text-foreground">{tier.name}</h3>
+              <p className="text-foreground/80 text-sm mb-8">{tier.description}</p>
 
-              <hr className="border-white/5 mb-8" />
+              <hr className="border-border-subtle mb-8" />
 
               <ul className="space-y-4 mb-10 flex-1">
                  {tier.features.map((feature) => (
-                   <li key={feature} className="flex items-center gap-3 text-sm text-white/70">
-                      <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-primary/20 transition-all">
+                   <li key={feature} className="flex items-center gap-3 text-sm text-foreground">
+                      <div className="w-5 h-5 rounded-full bg-icon-bg flex items-center justify-center group-hover:bg-primary/20 transition-all">
                          <Check className="w-3 h-3 text-primary" />
                       </div>
                       {feature}
@@ -124,10 +131,10 @@ export default function PricingPage() {
               </ul>
 
               <button className={cn(
-                "w-full py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all",
+                "w-full py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg",
                 tier.highlight 
-                  ? "bg-white text-black hover:scale-105 active:scale-95 shadow-xl shadow-white/10" 
-                  : "bg-white/5 text-white/70 hover:bg-white/10"
+                  ? "bg-foreground text-background hover:scale-105 active:scale-95" 
+                  : "bg-icon-bg text-foreground hover:bg-icon-bg/80"
               )}>
                  {tier.buttonText}
               </button>

@@ -22,6 +22,8 @@ interface ToolbarProps {
   setBrushSize: (size: number) => void;
   onClear?: () => void;
   onDownload?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
   onAiAssist?: () => void;
 }
 
@@ -40,13 +42,15 @@ export default function Toolbar({
   setBrushSize,
   onClear,
   onDownload,
+  onUndo,
+  onRedo,
   onAiAssist
 }: ToolbarProps) {
   return (
-    <div className="flex flex-col gap-4 p-6 glass rounded-3xl border-white/10 shadow-2xl h-full overflow-y-auto">
+    <div className="flex flex-col gap-4 p-6 glass rounded-3xl border-border-subtle shadow-2xl h-full overflow-y-auto">
       {/* Tools Section */}
       <div className="space-y-4">
-        <h4 className="text-xs font-bold uppercase tracking-widest text-white/40">Drawing Tools</h4>
+        <h4 className="text-xs font-bold uppercase tracking-widest text-text-muted">Drawing Tools</h4>
         <div className="grid grid-cols-3 gap-2">
           <ToolButton 
             active={currentTool === "brush"} 
@@ -69,11 +73,11 @@ export default function Toolbar({
         </div>
       </div>
 
-      <hr className="border-white/5" />
+      <hr className="border-border-subtle" />
 
       {/* Colors Section */}
       <div className="space-y-4">
-        <h4 className="text-xs font-bold uppercase tracking-widest text-white/40">Palette</h4>
+        <h4 className="text-xs font-bold uppercase tracking-widest text-text-muted">Palette</h4>
         <div className="grid grid-cols-5 gap-2">
           {PRESET_COLORS.map((c) => (
             <button
@@ -81,12 +85,12 @@ export default function Toolbar({
               onClick={() => setColor(c)}
               className={cn(
                 "w-8 h-8 rounded-full border-2 transition-all hover:scale-110",
-                currentColor === c ? "border-white scale-110 shadow-lg" : "border-white/5"
+                currentColor === c ? "border-primary scale-110 shadow-lg" : "border-border-subtle"
               )}
               style={{ backgroundColor: c }}
             />
           ))}
-          <label className="w-8 h-8 rounded-full border-2 border-white/5 flex items-center justify-center cursor-pointer hover:bg-white/5">
+          <label className="w-8 h-8 rounded-full border-2 border-border-subtle flex items-center justify-center cursor-pointer hover:bg-icon-bg text-foreground">
              <Palette className="w-4 h-4" />
              <input 
                type="color" 
@@ -98,13 +102,13 @@ export default function Toolbar({
         </div>
       </div>
 
-      <hr className="border-white/5" />
+      <hr className="border-border-subtle" />
 
       {/* Brush Size */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h4 className="text-xs font-bold uppercase tracking-widest text-white/40">Size</h4>
-          <span className="text-xs text-white/60 font-mono">{brushSize}px</span>
+          <h4 className="text-xs font-bold uppercase tracking-widest text-text-muted">Size</h4>
+          <span className="text-xs text-text-muted font-mono">{brushSize}px</span>
         </div>
         <input
           type="range"
@@ -112,11 +116,11 @@ export default function Toolbar({
           max="50"
           value={brushSize}
           onChange={(e) => setBrushSize(parseInt(e.target.value))}
-          className="w-full accent-primary bg-white/5 rounded-lg appearance-none h-1.5"
+          className="w-full accent-primary bg-icon-bg rounded-lg appearance-none h-1.5"
         />
       </div>
 
-      <hr className="border-white/5" />
+      <hr className="border-border-subtle" />
 
       {/* Actions */}
       <div className="mt-auto space-y-3">
@@ -134,8 +138,8 @@ export default function Toolbar({
         </div>
         
         <div className="grid grid-cols-2 gap-3">
-          <ActionButton icon={<Undo2 className="w-4 h-4" />} label="Undo" disabled />
-          <ActionButton icon={<Redo2 className="w-4 h-4" />} label="Redo" disabled />
+          <ActionButton onClick={onUndo} icon={<Undo2 className="w-4 h-4" />} label="Undo" />
+          <ActionButton onClick={onRedo} icon={<Redo2 className="w-4 h-4" />} label="Redo" />
         </div>
       </div>
     </div>
@@ -150,7 +154,7 @@ function ToolButton({ active, onClick, icon, label }: { active: boolean; onClick
         "flex flex-col items-center justify-center gap-2 p-3 rounded-2xl transition-all border",
         active 
           ? "bg-primary text-white border-primary shadow-lg shadow-primary/30 scale-105" 
-          : "bg-white/5 text-white/50 border-white/5 hover:bg-white/10 hover:text-white"
+          : "bg-icon-bg text-text-muted border-border-subtle hover:bg-icon-bg/50 hover:text-foreground"
       )}
     >
       {icon}
@@ -167,8 +171,8 @@ function ActionButton({ onClick, icon, label, disabled = false }: { onClick?: ()
       className={cn(
         "flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all border",
         disabled 
-          ? "opacity-30 cursor-not-allowed border-white/5" 
-          : "bg-white/5 border-white/5 hover:bg-white/10 text-white/70 hover:text-white active:scale-95"
+          ? "opacity-30 cursor-not-allowed border-border-subtle" 
+          : "bg-icon-bg border-border-subtle hover:bg-icon-bg/50 text-foreground/70 hover:text-foreground active:scale-95"
       )}
     >
       {icon}

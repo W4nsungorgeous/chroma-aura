@@ -1,7 +1,31 @@
 @import "tailwindcss";
 
 :root {
-  --background: #020617; /* Deep slate */
+  /* Default Light Mode - Vibrant Kids Friendly */
+  --background: #ffffff;
+  --foreground: #0f172a;
+  
+  --primary: #965df5; /* slightly more saturated */
+  --primary-glow: rgba(150, 93, 245, 0.4);
+  --accent: #f43f5e; /* Rose 500 for more pop */
+  --accent-glow: rgba(244, 63, 94, 0.4);
+  
+  --card-bg: rgba(255, 255, 255, 0.85);
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(15, 23, 42, 0.12);
+  --section-muted: #f1f5f9; 
+  --text-muted: #334155; /* Slate 700 for better contrast */
+  --title-gradient: linear-gradient(to bottom right, #0f172a, #334155, #7c3aed);
+  
+  --border-subtle: rgba(15, 23, 42, 0.15);
+  --icon-bg: rgba(15, 23, 42, 0.08);
+  --glass-border: rgba(15, 23, 42, 0.2);
+  --glass-bg: rgba(255, 255, 255, 0.6);
+}
+
+.dark {
+  /* Original Dark Scheme - Premium AI style */
+  --background: #020617;
   --foreground: #f8fafc;
   
   --primary: #8b5cf6;
@@ -10,7 +34,14 @@
   --accent-glow: rgba(236, 72, 153, 0.5);
   
   --card-bg: rgba(15, 23, 42, 0.6);
+  --glass-bg: rgba(15, 23, 42, 0.6);
   --glass-border: rgba(255, 255, 255, 0.1);
+  --section-muted: #020617; /* same as bg in dark */
+  --text-muted: rgba(255, 255, 255, 0.5);
+  --title-gradient: linear-gradient(to bottom, #ffffff, rgba(255, 255, 255, 0.4));
+  
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --icon-bg: rgba(255, 255, 255, 0.05);
 }
 
 @theme inline {
@@ -18,6 +49,10 @@
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
   --color-accent: var(--accent);
+  --color-section-muted: var(--section-muted);
+  --color-text-muted: var(--text-muted);
+  --color-border-subtle: var(--border-subtle);
+  --color-icon-bg: var(--icon-bg);
   
   --font-heading: var(--font-outfit);
   --font-sans: var(--font-inter);
@@ -25,22 +60,34 @@
 
 @layer base {
   * {
-    @apply border-white/5;
+    border-color: var(--glass-border);
   }
   
   body {
     @apply bg-background text-foreground selection:bg-primary/30;
     font-feature-settings: "rlig" 1, "calt" 1;
+    background-image: radial-gradient(at 0% 0%, rgba(150, 93, 245, 0.08) 0px, transparent 50%),
+                      radial-gradient(at 100% 0%, rgba(244, 63, 94, 0.08) 0px, transparent 50%);
+    background-attachment: fixed;
   }
 }
 
 @layer utilities {
   .glass {
-    @apply backdrop-blur-xl bg-slate-900/60 border border-white/10 shadow-2xl;
+    @apply backdrop-blur-xl shadow-xl;
+    background-color: var(--glass-bg);
+    border: 1px solid var(--glass-border);
   }
   
   .glass-card {
-    @apply backdrop-blur-lg bg-white/5 border border-white/10 hover:border-white/20 transition-all duration-300;
+    @apply backdrop-blur-lg shadow-xl hover:shadow-2xl transition-all duration-500;
+    background-color: var(--card-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05), var(--vibrant-glow);
+  }
+  
+  .vibrant-shadow {
+    box-shadow: 0 20px 60px -15px var(--primary-glow);
   }
   
   .text-glow {
