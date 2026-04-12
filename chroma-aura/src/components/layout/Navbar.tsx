@@ -5,9 +5,11 @@ import { Sparkles, Palette, Library, User, Menu } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "@/components/ui/ThemeToggle";
-import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
+import { useUser, SignInButton, SignUpButton } from "@clerk/nextjs";
+import UserMenu from "@/components/ui/UserMenu";
 
 export default function Navbar() {
+  const { isLoaded, isSignedIn } = useUser();
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
@@ -25,7 +27,7 @@ export default function Navbar() {
         isScrolled ? "top-2" : "top-6"
       )}
     >
-      <div className="glass rounded-2xl px-6 py-4 flex items-center justify-between border-glass-border shadow-2xl overflow-hidden relative">
+      <div className="glass rounded-2xl px-6 py-4 flex items-center justify-between border-glass-border shadow-2xl relative">
         {/* Animated background glow */}
         <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5 opacity-30 blur-xl -z-10 animate-pulse" />
         
@@ -51,29 +53,30 @@ export default function Navbar() {
         <div className="flex items-center gap-4">
           <ThemeToggle />
           
-          <Show when="signed-out">
-            <SignInButton mode="modal">
-              <button className="hidden sm:flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-all cursor-pointer active:scale-95">
-                <User className="w-4 h-4" />
-                <span>Login</span>
-              </button>
-            </SignInButton>
-            <SignUpButton mode="modal">
-              <button className="bg-iridescent px-6 py-2.5 rounded-xl font-bold text-white shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 cursor-pointer transition-all">
-                Get Started
-              </button>
-            </SignUpButton>
-          </Show>
-
-          <Show when="signed-in">
-            <UserButton 
-              appearance={{
-                elements: {
-                  avatarBox: "w-10 h-10 rounded-xl"
-                }
-              }}
-            />
-          </Show>
+          <div className="flex items-center gap-4 min-w-[100px] justify-end">
+            {!isLoaded ? (
+              <div className="flex items-center gap-2 p-1">
+                <div className="w-10 h-10 rounded-full bg-slate-200 animate-pulse" />
+                <div className="w-4 h-4 rounded bg-slate-100 animate-pulse" />
+              </div>
+            ) : isSignedIn ? (
+              <UserMenu />
+            ) : (
+              <>
+                <SignInButton mode="modal">
+                  <button className="hidden sm:flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-all cursor-pointer active:scale-95">
+                    <User className="w-4 h-4" />
+                    <span>Login</span>
+                  </button>
+                </SignInButton>
+                <SignUpButton mode="modal">
+                  <button className="bg-iridescent px-6 py-2.5 rounded-xl font-bold text-white shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 cursor-pointer transition-all">
+                    Get Started
+                  </button>
+                </SignUpButton>
+              </>
+            )}
+          </div>
 
           <button className="md:hidden p-2 text-slate-600 hover:text-primary cursor-pointer active:scale-95 transition-all">
             <Menu className="w-6 h-6" />

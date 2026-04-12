@@ -186,7 +186,7 @@ export default function GalleryPage() {
 
                 {/* Global Tag */}
                 <motion.div 
-                  className="absolute top-8 right-8 z-40 px-4 py-1.5 rounded-full glass border-white/20 text-[10px] font-bold text-white shadow-xl pointer-events-none uppercase tracking-widest"
+                  className="absolute top-8 right-8 z-40 px-4 py-1.5 rounded-full bg-background/80 backdrop-blur-md border border-white/10 text-[10px] font-bold text-foreground shadow-xl pointer-events-none uppercase tracking-widest"
                   whileHover={{ scale: 1.1 }}
                 >
                   {sample.tag}

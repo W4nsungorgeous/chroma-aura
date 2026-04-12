@@ -14,6 +14,7 @@ import { SignInButton } from "@clerk/nextjs";
 interface SavedProject {
   id: string;
   dataUrl: string;
+  lineartUrl?: string;
   timestamp: number;
 }
 
@@ -58,16 +59,39 @@ function StudioMain() {
   // Load history on mount
   useEffect(() => {
     const saved = localStorage.getItem("chroma_aura_history");
+    let isHistoryEmpty = true;
     if (saved) {
       try { 
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) setSavedProjects(parsed);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSavedProjects(parsed);
+          isHistoryEmpty = false;
+        }
       } catch (e) { 
         console.error("Failed to load history:", e); 
       }
     }
+    
+    // Seed test data if empty to allow immediate testing of batch features
+    if (isHistoryEmpty) {
+      seedInitialHistory();
+    }
     setIsHistoryLoaded(true);
   }, []);
+
+  const seedInitialHistory = () => {
+    const sampleProjects: SavedProject[] = [
+      { id: "s1", dataUrl: "/ai/latest_autocolor.png", lineartUrl: "/ai/latest_lineart.png", timestamp: Date.now() },
+      { id: "s2", dataUrl: "/ai/latest_autocolor.png", lineartUrl: "/ai/latest_lineart.png", timestamp: Date.now() },
+      { id: "s3", dataUrl: "/ai/latest_autocolor.png", lineartUrl: "/ai/latest_lineart.png", timestamp: Date.now() },
+      { id: "s4", dataUrl: "/ai/latest_autocolor.png", lineartUrl: "/ai/latest_lineart.png", timestamp: Date.now() },
+      { id: "s5", dataUrl: "/ai/latest_autocolor.png", lineartUrl: "/ai/latest_lineart.png", timestamp: Date.now() },
+      { id: "s6", dataUrl: "/ai/latest_autocolor.png", lineartUrl: "/ai/latest_lineart.png", timestamp: Date.now() },
+      { id: "s7", dataUrl: "/ai/latest_autocolor.png", lineartUrl: "/ai/latest_lineart.png", timestamp: Date.now() },
+      { id: "s8", dataUrl: "/ai/latest_autocolor.png", lineartUrl: "/ai/latest_lineart.png", timestamp: Date.now() },
+    ];
+    setSavedProjects(sampleProjects);
+  };
 
   // Save history only after initialization
   useEffect(() => {
@@ -82,6 +106,7 @@ function StudioMain() {
     const newProject: SavedProject = {
       id: Math.random().toString(36).substr(2, 9),
       dataUrl,
+      lineartUrl: generatedImage,
       timestamp: Date.now()
     };
     setSavedProjects(prev => [newProject, ...prev]);
@@ -503,17 +528,72 @@ function StudioMain() {
                       key={project.id}
                       onClick={() => isSelectionMode && handleToggleSelection(project.id)}
                       className={cn(
-                        "group relative aspect-square rounded-[32px] overflow-hidden bg-foreground/5 border transition-all cursor-pointer",
+                        "group relative aspect-square rounded-[32px] bg-foreground/5 border transition-all cursor-pointer",
+                        "perspective-[1500px]", // Added perspective for 3D effect
                         isSelectionMode ? (
                           isSelected ? "border-primary ring-2 ring-primary/20 scale-[0.98]" : "border-white/10 hover:border-white/20"
                         ) : "border-white/10 hover:border-foreground/20"
                       )}
                     >
-                      <img src={project.dataUrl} alt="Project" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                      {/* Lineart Layer (Front/Rotating) */}
+                      <motion.div 
+                        initial={false}
+                        animate={isSelectionMode ? {} : {
+                          rotateY: 0,
+                          x: 0,
+                          scale: 1,
+                          opacity: 1,
+                          filter: "none"
+                        }}
+                        whileHover={isSelectionMode ? {} : {
+                          rotateY: -35,
+                          x: "-28%",
+                          scale: 0.85,
+                          opacity: 0.4,
+                          filter: "grayscale(1) brightness(1.2)"
+                        }}
+                        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                        className="absolute inset-0 z-0 rounded-[32px] overflow-hidden border border-white/5"
+                      >
+                        <img 
+                          src={project.lineartUrl || project.dataUrl} 
+                          alt="Lineart" 
+                          className={cn(
+                            "w-full h-full object-cover",
+                            !project.lineartUrl && "grayscale contrast-[1.2] brightness-[1.1]"
+                          )} 
+                        />
+                      </motion.div>
+
+                      {/* Finished Masterpiece Layer (Right Extracting) */}
+                      {!isSelectionMode && (
+                        <motion.div
+                          initial={{ x: "100%", opacity: 0, rotateY: 0, scale: 0.9 }}
+                          whileHover={{ 
+                            x: 0, 
+                            opacity: 1, 
+                            rotateY: 0, 
+                            scale: 1,
+                            zIndex: 10,
+                            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)"
+                          }}
+                          transition={{ type: "spring", stiffness: 350, damping: 30, delay: 0.05 }}
+                          className="absolute inset-0 rounded-[32px] overflow-hidden border-2 border-primary shadow-2xl pointer-events-none"
+                        >
+                          <img src={project.dataUrl} alt="Finished" className="w-full h-full object-cover" />
+                        </motion.div>
+                      )}
+
+                      {/* Explicitly show finished state if in selection mode without animation */}
+                      {isSelectionMode && (
+                        <div className="absolute inset-0 rounded-[32px] overflow-hidden">
+                          <img src={project.dataUrl} alt="Project" className="w-full h-full object-cover" />
+                        </div>
+                      )}
                       
                       {/* Selection Overlay */}
                       {isSelectionMode && (
-                        <div className="absolute top-4 right-4 z-10">
+                        <div className="absolute top-4 right-4 z-20">
                           {isSelected ? (
                             <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-lg transform scale-110 transition-transform">
                               <Check className="w-5 h-5 text-white" />
@@ -525,7 +605,7 @@ function StudioMain() {
                       )}
 
                       {!isSelectionMode && (
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-4">
+                        <div className="absolute inset-0 z-30 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-4">
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
@@ -552,7 +632,7 @@ function StudioMain() {
                               e.stopPropagation();
                               handleDeleteHistory(project.id);
                             }}
-                            className="px-6 py-2 rounded-xl bg-rose-500/20 text-rose-500 font-bold hover:bg-rose-500 hover:text-white hover:scale-105 active:scale-95 cursor-pointer transition-all flex items-center gap-2 border border-rose-500/20"
+                            className="px-4 py-2 rounded-xl bg-rose-500/20 text-rose-500 font-bold hover:bg-rose-500 hover:text-white hover:scale-105 active:scale-95 cursor-pointer transition-all flex items-center gap-2 border border-rose-500/20"
                           >
                             <Trash2 className="w-4 h-4" />
                             Delete

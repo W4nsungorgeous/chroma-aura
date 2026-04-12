@@ -90,7 +90,12 @@ export function useQuota() {
   return {
     tier,
     drawingQuota: { used: drawingQuotaUsed, limit: limits.drawing },
-    generationQuota: { used: generationQuotaUsed, limit: limits.generation },
+    generationQuota: { 
+      used: generationQuotaUsed, 
+      limit: limits.generation,
+      remaining: Math.max(0, limits.generation - generationQuotaUsed)
+    },
+    expiresAt: user?.publicMetadata?.expiresAt as string || null,
     decrementDrawing,
     decrementGeneration,
     isLimitReached: drawingQuotaUsed >= limits.drawing || generationQuotaUsed >= limits.generation
