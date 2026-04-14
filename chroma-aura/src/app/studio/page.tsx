@@ -38,11 +38,12 @@ function StudioMain() {
   
   const canvasRef = useRef<ColoringCanvasRef>(null);
 
-  const { 
+  const {
     tier,
-    generationQuota, 
-    drawingQuota, 
-    decrementGeneration, 
+    deviceId,
+    generationQuota,
+    drawingQuota,
+    decrementGeneration,
     decrementDrawing,
   } = useQuota();
 
@@ -171,13 +172,15 @@ function StudioMain() {
     setStashState(null);
   };
 
+  const deviceHeader: Record<string, string> = deviceId ? { "X-Device-Id": deviceId } : {};
+
   const handleEnhancePrompt = async () => {
     if (!prompt || isEnhancing) return;
     setIsEnhancing(true);
     try {
       const response = await fetch("/api/ai/enhance", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...deviceHeader },
         body: JSON.stringify({ prompt }),
       });
       const data = await response.json();
@@ -192,7 +195,7 @@ function StudioMain() {
     try {
       const response = await fetch("/api/ai/autocolor", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...deviceHeader },
         body: JSON.stringify({ imageUrl: generatedImage || "initial" }),
       });
       const data = await response.json();
@@ -206,7 +209,7 @@ function StudioMain() {
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...deviceHeader },
         body: JSON.stringify({ prompt }),
       });
       const data = await response.json();

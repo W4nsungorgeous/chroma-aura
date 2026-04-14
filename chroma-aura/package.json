@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.12",
+    "@fal-ai/client": "^1.9.5",
     "@fingerprintjs/fingerprintjs": "^5.2.0",
     "@supabase/supabase-js": "^2.102.1",
     "canvas-confetti": "^1.9.4",

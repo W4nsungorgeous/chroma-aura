@@ -1,11 +1,15 @@
 import { AIProvider } from "./interface";
 import { MockProvider } from "./providers/mock-provider";
+import { FalProvider } from "./providers/fal-provider";
 
 class AIBridge {
   private provider: AIProvider;
 
   constructor() {
-    this.provider = new MockProvider();
+    this.provider = process.env.FAL_API_KEY
+      ? new FalProvider()
+      : new MockProvider();
+    console.log(`[AIBridge] Using provider: ${this.provider.name}`);
   }
 
   async generate(prompt: string) {

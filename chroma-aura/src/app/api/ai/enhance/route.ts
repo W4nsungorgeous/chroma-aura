@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiBridge } from "@/lib/ai/bridge";
+import { filterPrompt } from "@/lib/content-filter";
 
 export async function POST(req: NextRequest) {
   try {
@@ -7,6 +8,11 @@ export async function POST(req: NextRequest) {
 
     if (!prompt) {
       return NextResponse.json({ success: false, error: "Prompt is required" }, { status: 400 });
+    }
+
+    const filter = filterPrompt(prompt);
+    if (!filter.allowed) {
+      return NextResponse.json({ success: false, error: filter.reason }, { status: 422 });
     }
 
     const response = await aiBridge.enhance(prompt);

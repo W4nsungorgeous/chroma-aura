@@ -4,10 +4,6 @@ import { useUser } from "@clerk/nextjs";
 
 export type UserTier = "guest" | "member" | "vip";
 
-interface Quota {
-  used: number;
-  limit: number;
-}
 
 const TIER_LIMITS = {
   guest: { generation: 3, drawing: 50 },
@@ -89,9 +85,10 @@ export function useQuota() {
 
   return {
     tier,
+    deviceId,
     drawingQuota: { used: drawingQuotaUsed, limit: limits.drawing },
-    generationQuota: { 
-      used: generationQuotaUsed, 
+    generationQuota: {
+      used: generationQuotaUsed,
       limit: limits.generation,
       remaining: Math.max(0, limits.generation - generationQuotaUsed)
     },
