@@ -86,10 +86,17 @@ export class FalProvider implements AIProvider {
       const result = await fal.subscribe("fal-ai/flux/dev/image-to-image", {
         input: {
           image_url: imageUrl,
-          prompt: "beautifully colored, vibrant harmonious colors, professional digital art, soft shading",
-          strength: 0.7,
-          num_inference_steps: 28,
-          guidance_scale: 3.5,
+          prompt:
+            "Beautifully hand-colored coloring book illustration. " +
+            "Fill every enclosed white region with vibrant, harmonious colors. " +
+            "Preserve all original black ink outlines exactly — every line must remain crisp, dark, and fully intact. " +
+            "Colors are applied strictly inside the boundaries defined by the black outlines, never crossing over them. " +
+            "Rich saturated palette, gentle cel-shading inside each cell, no bleed across outline boundaries. " +
+            "The overall composition, subject, and all structural details must remain identical to the input. " +
+            "Professional finished coloring book page, print-ready.",
+          strength: 0.55,
+          num_inference_steps: 35,
+          guidance_scale: 5.0,
           num_images: 1,
         },
       });

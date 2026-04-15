@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import ColoringCanvas, { ColoringCanvasRef } from "@/components/studio/ColoringCanvas";
 import Toolbar from "@/components/studio/Toolbar";
-import { Sparkles, Wand2, Mic, ImageIcon, History, Share2, Undo2, Save, X, Trash2, Check, Square, Download, CheckCircle2 } from "lucide-react";
+import { Sparkles, Wand2, Mic, ImageIcon, History, Undo2, Save, X, Trash2, Check, Download, CheckCircle2, Maximize2, Minimize2, Brush, PaintBucket, Eraser, Redo2, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useQuota } from "@/hooks/useQuota";
@@ -41,8 +41,18 @@ function StudioMain() {
   const [idsToDelete, setIdsToDelete] = useState<string[]>([]);
   // Stash preserves both canvas pixels and lineartUrl so "Back to Live Session" fully restores state.
   const [stashState, setStashState] = useState<{ canvas: string; lineartUrl: string | undefined } | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showColorPanel, setShowColorPanel] = useState(false);
+  const [zoom, setZoom] = useState(1);
+
+  const PRESET_COLORS = [
+    "#000000", "#FFFFFF", "#FF0000", "#00FF00", "#0000FF",
+    "#FFFF00", "#FF00FF", "#00FFFF", "#FFA500", "#800080",
+    "#8B5CF6", "#EC4899", "#3B82F6", "#10B981", "#F59E0B",
+  ];
   
   const canvasRef = useRef<ColoringCanvasRef>(null);
+  const fullscreenContainerRef = useRef<HTMLDivElement>(null);
 
   const {
     tier,
@@ -184,6 +194,48 @@ function StudioMain() {
   };
 
   const deviceHeader: Record<string, string> = deviceId ? { "X-Device-Id": deviceId } : {};
+
+  // ── System-level fullscreen helpers ──────────────────────────────────────
+  const enterFullscreen = async () => {
+    try {
+      await document.documentElement.requestFullscreen();
+    } catch {
+      // Browser denied fullscreen — fall back to CSS-only mode
+    }
+    setIsFullscreen(true);
+    setZoom(1);
+  };
+
+  const exitFullscreen = async () => {
+    if (document.fullscreenElement) {
+      try { await document.exitFullscreen(); } catch { /* ignore */ }
+    }
+    setIsFullscreen(false);
+    setZoom(1);
+    setShowColorPanel(false);
+  };
+
+  // Sync state when browser exits fullscreen externally (Esc key / F11)
+  useEffect(() => {
+    const onFSChange = () => {
+      if (!document.fullscreenElement) {
+        setIsFullscreen(false);
+        setZoom(1);
+        setShowColorPanel(false);
+      }
+    };
+    document.addEventListener("fullscreenchange", onFSChange);
+    return () => document.removeEventListener("fullscreenchange", onFSChange);
+  }, []);
+
+  // Close color panel on Escape when not in system fullscreen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && showColorPanel) setShowColorPanel(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showColorPanel]);
 
   const handleEnhancePrompt = async () => {
     if (!prompt || isEnhancing) return;
@@ -411,26 +463,214 @@ function StudioMain() {
             </div>
           </div>
 
-          {/* Studio Canvas */}
-          <div className="col-span-6 h-full relative">
-            <div className="glass h-full rounded-[48px] border-white/10 shadow-2xl relative overflow-hidden backdrop-blur-3xl">
-              <ColoringCanvas 
-                ref={canvasRef}
-                imageUrl={generatedImage}
-                tool={tool}
-                color={color}
-                brushSize={brushSize}
-                width={canvasSize.width}
-                height={canvasSize.height}
-                onAction={decrementDrawing}
-              />
-              {stashState && (
+          {/* Studio Canvas — also hosts fullscreen immersive mode */}
+          <div
+            ref={fullscreenContainerRef}
+            className={cn(
+              isFullscreen
+                ? "fixed inset-0 z-[200] bg-background flex flex-col"
+                : "col-span-6 h-full relative"
+            )}
+          >
+            {/* ── Fullscreen Toolbar (only rendered in fullscreen) ─────────────── */}
+            {isFullscreen && (
+              <div className="flex items-center justify-center gap-2 px-5 py-3 border-b border-white/10 bg-background/90 backdrop-blur-2xl shrink-0">
+                {/* Exit */}
+                <button
+                  onClick={exitFullscreen}
+                  className="p-2 rounded-xl bg-foreground/5 hover:bg-foreground/10 transition-all flex items-center gap-2 text-sm font-bold cursor-pointer active:scale-95"
+                  title="Exit Fullscreen (Esc)"
+                >
+                  <Minimize2 className="w-4 h-4" />
+                  <span>Exit</span>
+                </button>
+
+                <div className="w-px h-6 bg-white/10 mx-1" />
+
+                {/* Drawing tools */}
+                <div className="flex items-center gap-1 p-1 rounded-xl bg-foreground/5">
+                  {(["brush", "bucket", "eraser"] as const).map((t) => {
+                    const Icon = t === "brush" ? Brush : t === "bucket" ? PaintBucket : Eraser;
+                    return (
+                      <button
+                        key={t}
+                        onClick={() => setTool(t)}
+                        title={t.charAt(0).toUpperCase() + t.slice(1)}
+                        className={cn(
+                          "p-2 rounded-lg transition-all cursor-pointer",
+                          tool === t ? "bg-foreground text-background" : "hover:bg-foreground/10"
+                        )}
+                      >
+                        <Icon className="w-4 h-4" />
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="w-px h-6 bg-white/10 mx-1" />
+
+                {/* Color swatch + popover */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowColorPanel(!showColorPanel)}
+                    className="w-8 h-8 rounded-lg border-2 border-white/20 shadow-md cursor-pointer hover:scale-110 transition-transform active:scale-95"
+                    style={{ backgroundColor: color }}
+                    title="Color"
+                  />
+                  {showColorPanel && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowColorPanel(false)} />
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 glass p-4 rounded-2xl border border-white/10 shadow-2xl w-48">
+                        <div className="grid grid-cols-5 gap-1.5 mb-3">
+                          {PRESET_COLORS.map((c) => (
+                            <button
+                              key={c}
+                              onClick={() => { setColor(c); setShowColorPanel(false); }}
+                              className={cn(
+                                "w-7 h-7 rounded-lg border-2 cursor-pointer hover:scale-110 transition-transform",
+                                c === color ? "border-white" : "border-transparent"
+                              )}
+                              style={{ backgroundColor: c }}
+                            />
+                          ))}
+                        </div>
+                        <input
+                          type="color"
+                          value={color}
+                          onChange={(e) => setColor(e.target.value)}
+                          className="w-full h-8 rounded-lg cursor-pointer"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Brush size */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min={1}
+                    max={50}
+                    value={brushSize}
+                    onChange={(e) => setBrushSize(Number(e.target.value))}
+                    className="w-24 accent-foreground cursor-pointer"
+                  />
+                  <span className="text-xs font-mono w-6 text-foreground/40">{brushSize}</span>
+                </div>
+
+                <div className="w-px h-6 bg-white/10 mx-1" />
+
+                {/* Undo / Redo */}
+                <button onClick={() => canvasRef.current?.undo()} className="p-2 rounded-xl bg-foreground/5 hover:bg-foreground/10 transition-all cursor-pointer active:scale-95" title="Undo">
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+                <button onClick={() => canvasRef.current?.redo()} className="p-2 rounded-xl bg-foreground/5 hover:bg-foreground/10 transition-all cursor-pointer active:scale-95" title="Redo">
+                  <Redo2 className="w-4 h-4" />
+                </button>
+
+                <div className="w-px h-6 bg-white/10 mx-1" />
+
+                {/* Zoom controls */}
+                <div className="flex items-center gap-1 p-1 rounded-xl bg-foreground/5">
+                  <button
+                    onClick={() => setZoom(z => Math.max(0.25, +(z - 0.25).toFixed(2)))}
+                    className="p-2 rounded-lg hover:bg-foreground/10 transition-all cursor-pointer active:scale-95"
+                    title="Zoom Out"
+                  >
+                    <ZoomOut className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setZoom(1)}
+                    className="px-2 py-1 rounded-lg text-xs font-mono font-bold hover:bg-foreground/10 transition-all cursor-pointer active:scale-95 min-w-[3rem] text-center"
+                    title="Reset Zoom"
+                  >
+                    {Math.round(zoom * 100)}%
+                  </button>
+                  <button
+                    onClick={() => setZoom(z => Math.min(4, +(z + 0.25).toFixed(2)))}
+                    className="p-2 rounded-lg hover:bg-foreground/10 transition-all cursor-pointer active:scale-95"
+                    title="Zoom In"
+                  >
+                    <ZoomIn className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="w-px h-6 bg-white/10 mx-1" />
+
+                {/* Clear / Save / Download */}
+                <button onClick={() => canvasRef.current?.clear()} className="p-2 rounded-xl bg-foreground/5 hover:bg-rose-500/20 hover:text-rose-400 transition-all cursor-pointer active:scale-95" title="Clear Canvas">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                <button onClick={handleSaveProject} className="p-2 rounded-xl bg-foreground/5 hover:bg-foreground/10 transition-all cursor-pointer active:scale-95" title="Save">
+                  <Save className="w-4 h-4" />
+                </button>
+                <button onClick={() => canvasRef.current?.download()} className="p-2 rounded-xl bg-foreground/5 hover:bg-foreground/10 transition-all cursor-pointer active:scale-95" title="Download">
+                  <Download className="w-4 h-4" />
+                </button>
+
+                {/* Back to Live Session (fullscreen) */}
+                {stashState && (
+                  <>
+                    <div className="w-px h-6 bg-white/10 mx-1" />
+                    <button
+                      onClick={handleReturnToActive}
+                      className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer transition-transform"
+                    >
+                      <Undo2 className="w-4 h-4" />
+                      Back to Live
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* ── Canvas area ─────────────────────────────────────────────────── */}
+            <div className={cn(
+              isFullscreen
+                ? "flex-1 relative overflow-hidden flex items-center justify-center"
+                : "glass h-full rounded-[48px] border-white/10 shadow-2xl relative overflow-hidden backdrop-blur-3xl"
+            )}>
+              {/* Zoom wrapper — fills container in both modes; scale only applied in fullscreen */}
+              <div
+                className={cn(isFullscreen ? "" : "w-full h-full")}
+                style={isFullscreen ? {
+                  transform: `scale(${zoom})`,
+                  transformOrigin: "center center",
+                  transition: "transform 0.15s ease",
+                } : undefined}
+              >
+                <ColoringCanvas
+                  ref={canvasRef}
+                  imageUrl={generatedImage}
+                  tool={tool}
+                  color={color}
+                  brushSize={brushSize}
+                  width={canvasSize.width}
+                  height={canvasSize.height}
+                  onAction={decrementDrawing}
+                  cssZoom={isFullscreen ? zoom : 1}
+                />
+              </div>
+
+              {/* Maximize button — only in normal mode */}
+              {!isFullscreen && (
+                <button
+                  onClick={enterFullscreen}
+                  className="absolute top-6 right-6 z-50 p-2.5 rounded-xl bg-background/60 hover:bg-background/80 backdrop-blur-md border border-white/10 shadow-lg transition-all cursor-pointer hover:scale-110 active:scale-95"
+                  title="Fullscreen Painting Mode"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                </button>
+              )}
+
+              {/* Back to Live Session — only in normal mode */}
+              {stashState && !isFullscreen && (
                 <div className="absolute top-8 left-8 z-50">
-                  <button 
+                  <button
                     onClick={handleReturnToActive}
                     className="px-6 py-3 rounded-2xl bg-primary text-white font-bold shadow-2xl flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer transition-transform"
                   >
-                    <Undo2 className="w-5 h-5" /> 
+                    <Undo2 className="w-5 h-5" />
                     Back to Live Session
                   </button>
                 </div>

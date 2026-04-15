@@ -23,6 +23,10 @@ interface ColoringCanvasProps {
   onRedo?: () => void;
   onAction?: () => void;
   isDisabled?: boolean;
+  /** CSS transform scale applied by an ancestor — used to convert getBoundingClientRect()
+   *  visual-pixel coordinates back to the inner wrapper's CSS-pixel coordinate space for
+   *  correct brush cursor placement. Defaults to 1 (no external transform). */
+  cssZoom?: number;
 }
 
 const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
@@ -34,6 +38,7 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
   imageUrl,
   onAction,
   isDisabled = false,
+  cssZoom = 1,
 }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -256,8 +261,14 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
     // Scale from display space to artboard space
     const artboardX = displayX * (artboardWidth / rect.width);
     const artboardY = displayY * (artboardHeight / rect.height);
+    // Convert visual-pixel cursor position back to the inner wrapper's CSS-pixel space.
+    // getBoundingClientRect() returns the post-transform rect, so when an ancestor applies
+    // scale(cssZoom), displayX/Y are in zoomed visual pixels. Dividing by cssZoom gives the
+    // correct position for the absolutely-positioned cursor div inside the un-transformed wrapper.
+    const cursorX = displayX / cssZoom;
+    const cursorY = displayY / cssZoom;
 
-    return { displayX, displayY, artboardX, artboardY };
+    return { displayX: cursorX, displayY: cursorY, artboardX, artboardY };
   };
 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
