@@ -249,18 +249,18 @@ function StudioMain() {
     } finally { setIsGenerating(false); }
   };
 
-  const handleSuggestionClick = (suggestion: string) => {
-    if (prompt.includes(suggestion)) return;
-    setPrompt(prev => prev ? `${prev}, ${suggestion}` : suggestion);
+  const handleSuggestionClick = (enrichedPrompt: string) => {
+    if (prompt.includes(enrichedPrompt)) return;
+    setPrompt(prev => prev ? `${prev}, ${enrichedPrompt}` : enrichedPrompt);
   };
 
   const SUGGESTIONS = [
-    { label: "Mandala", icon: "☸️" },
-    { label: "Anime", icon: "⛩️" },
-    { label: "Cyberpunk", icon: "🌃" },
-    { label: "Nature", icon: "🌿" },
-    { label: "Fantasy", icon: "🐉" },
-    { label: "Space", icon: "🚀" },
+    { label: "Mandala", icon: "☸️", enriched: "intricate symmetrical mandala pattern, geometric circular design, zen-like spiritual art" },
+    { label: "Anime", icon: "⛩️", enriched: "classic anime character, expressive eyes, dynamic hair, manga line art style" },
+    { label: "Cyberpunk", icon: "🌃", enriched: "cyberpunk futuristic city, robotic enhancements, intricate circuitry, high-tech noir" },
+    { label: "Nature", icon: "🌿", enriched: "lush botanical forest, blooming flowers, delicate leaves, wildlife elements" },
+    { label: "Fantasy", icon: "🐉", enriched: "majestic fantasy dragon, mystical enchanted castle, magical aura" },
+    { label: "Space", icon: "🚀", enriched: "cosmic starfield, orbiting planets, futuristic astronaut exploring nebula" },
   ];
 
   return (
@@ -322,7 +322,7 @@ function StudioMain() {
                   {SUGGESTIONS.map((s) => (
                     <button
                       key={s.label}
-                      onClick={() => handleSuggestionClick(s.label)}
+                      onClick={() => handleSuggestionClick(s.enriched)}
                       className="px-4 py-2 rounded-2xl bg-foreground/5 hover:bg-foreground/10 text-xs font-medium transition-all flex items-center gap-2 cursor-pointer active:scale-95"
                     >
                       <span>{s.icon}</span> {s.label}
