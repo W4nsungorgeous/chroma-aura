@@ -29,6 +29,11 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// Pre-compile all regex patterns at module load time (not on every filterPrompt call)
+const BLOCKED_WORD_PATTERNS = BLOCKED_WORDS.map(
+  (word) => new RegExp(`\\b${escapeRegex(word)}\\b`)
+);
+
 export function filterPrompt(prompt: string): FilterResult {
   const trimmed = prompt.trim();
 
@@ -41,8 +46,8 @@ export function filterPrompt(prompt: string): FilterResult {
 
   const lower = trimmed.toLowerCase();
 
-  for (const word of BLOCKED_WORDS) {
-    if (new RegExp(`\\b${escapeRegex(word)}\\b`).test(lower)) {
+  for (const pattern of BLOCKED_WORD_PATTERNS) {
+    if (pattern.test(lower)) {
       return { allowed: false, reason: "Your prompt contains content that violates our content policy." };
     }
   }

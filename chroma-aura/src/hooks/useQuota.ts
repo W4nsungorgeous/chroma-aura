@@ -43,11 +43,15 @@ export function useQuota() {
       setDeviceId(result.visitorId);
       
       // Load initial quota from localStorage
-      const stored = localStorage.getItem(`quota_${result.visitorId}`);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setDrawingQuotaUsed(parsed.drawing.used || 0);
-        setGenerationQuotaUsed(parsed.generation.used || 0);
+      try {
+        const stored = localStorage.getItem(`quota_${result.visitorId}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setDrawingQuotaUsed(parsed.drawing.used || 0);
+          setGenerationQuotaUsed(parsed.generation.used || 0);
+        }
+      } catch {
+        // localStorage unavailable (private browsing) or JSON corrupt — start from zero
       }
     };
 
@@ -76,10 +80,14 @@ export function useQuota() {
 
   const saveQuota = (drawingUsed: number, generationUsed: number) => {
     if (deviceId) {
-      localStorage.setItem(`quota_${deviceId}`, JSON.stringify({ 
-        drawing: { used: drawingUsed, limit: limits.drawing }, 
-        generation: { used: generationUsed, limit: limits.generation } 
-      }));
+      try {
+        localStorage.setItem(`quota_${deviceId}`, JSON.stringify({
+          drawing: { used: drawingUsed, limit: limits.drawing },
+          generation: { used: generationUsed, limit: limits.generation }
+        }));
+      } catch {
+        // localStorage unavailable or full — quota state lives only in memory this session
+      }
     }
   };
 

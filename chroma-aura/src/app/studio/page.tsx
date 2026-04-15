@@ -23,7 +23,9 @@ function StudioMain() {
   const [color, setColor] = useState("#000000");
   const [brushSize, setBrushSize] = useState(10);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [enhanceError, setEnhanceError] = useState<string | null>(null);
   const [isAutoColoring, setIsAutoColoring] = useState(false);
   const [autoColorError, setAutoColorError] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
@@ -53,6 +55,8 @@ function StudioMain() {
   
   const canvasRef = useRef<ColoringCanvasRef>(null);
   const fullscreenContainerRef = useRef<HTMLDivElement>(null);
+  const isMountedRef = useRef(true);
+  useEffect(() => { return () => { isMountedRef.current = false; }; }, []);
 
   const {
     tier,
@@ -78,39 +82,18 @@ function StudioMain() {
   // Load history on mount
   useEffect(() => {
     const saved = localStorage.getItem("chroma_aura_history");
-    let isHistoryEmpty = true;
     if (saved) {
-      try { 
+      try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setSavedProjects(parsed);
-          isHistoryEmpty = false;
         }
-      } catch (e) { 
-        console.error("Failed to load history:", e); 
+      } catch (e) {
+        console.error("Failed to load history:", e);
       }
-    }
-    
-    // Seed test data if empty to allow immediate testing of batch features
-    if (isHistoryEmpty) {
-      seedInitialHistory();
     }
     setIsHistoryLoaded(true);
   }, []);
-
-  const seedInitialHistory = () => {
-    const sampleProjects: SavedProject[] = [
-      { id: "s1", dataUrl: "/ai/latest_autocolor.png", lineartUrl: "/ai/latest_lineart.png", timestamp: Date.now() },
-      { id: "s2", dataUrl: "/ai/latest_autocolor.png", lineartUrl: "/ai/latest_lineart.png", timestamp: Date.now() },
-      { id: "s3", dataUrl: "/ai/latest_autocolor.png", lineartUrl: "/ai/latest_lineart.png", timestamp: Date.now() },
-      { id: "s4", dataUrl: "/ai/latest_autocolor.png", lineartUrl: "/ai/latest_lineart.png", timestamp: Date.now() },
-      { id: "s5", dataUrl: "/ai/latest_autocolor.png", lineartUrl: "/ai/latest_lineart.png", timestamp: Date.now() },
-      { id: "s6", dataUrl: "/ai/latest_autocolor.png", lineartUrl: "/ai/latest_lineart.png", timestamp: Date.now() },
-      { id: "s7", dataUrl: "/ai/latest_autocolor.png", lineartUrl: "/ai/latest_lineart.png", timestamp: Date.now() },
-      { id: "s8", dataUrl: "/ai/latest_autocolor.png", lineartUrl: "/ai/latest_lineart.png", timestamp: Date.now() },
-    ];
-    setSavedProjects(sampleProjects);
-  };
 
   // Save history only after initialization.
   // Wrapped in try-catch: if localStorage quota is exceeded, trim oldest entries and retry.
@@ -159,6 +142,7 @@ function StudioMain() {
   const handleSaveProject = async () => {
     if (!canvasRef.current) return;
     const dataUrl = await compressDataUrl(canvasRef.current.getCanvasData());
+    if (!isMountedRef.current) return; // component unmounted during async compression
     const newProject: SavedProject = {
       id: Math.random().toString(36).substr(2, 9),
       dataUrl,
@@ -278,6 +262,7 @@ function StudioMain() {
   const handleEnhancePrompt = async () => {
     if (!prompt || isEnhancing) return;
     setIsEnhancing(true);
+    setEnhanceError(null);
     try {
       const response = await fetch("/api/ai/enhance", {
         method: "POST",
@@ -285,9 +270,16 @@ function StudioMain() {
         body: JSON.stringify({ prompt }),
       });
       const data = await response.json();
-      if (data.success) setPrompt(data.enhanced);
-    } catch (error) { console.error(error); } 
-    finally { setIsEnhancing(false); }
+      if (data.success && data.enhanced) {
+        setPrompt(data.enhanced);
+      } else {
+        setEnhanceError(data.error || "Enhancement failed. Please try again.");
+      }
+    } catch {
+      setEnhanceError("Connection error. Please try again.");
+    } finally {
+      setIsEnhancing(false);
+    }
   };
 
   const handleAutoColor = async () => {
@@ -324,6 +316,7 @@ function StudioMain() {
   const handleGenerate = async () => {
     if (!prompt || isGenerating || generationQuota.used >= generationQuota.limit) return;
     setIsGenerating(true);
+    setGenerateError(null);
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
@@ -338,8 +331,14 @@ function StudioMain() {
         setLineartUrl(data.imageUrl);
         setPrompt("");
         decrementGeneration();
+      } else {
+        setGenerateError(data.error || "Generation failed. Please try again.");
       }
-    } finally { setIsGenerating(false); }
+    } catch {
+      setGenerateError("Connection error. Please try again.");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleSuggestionClick = (enrichedPrompt: string) => {
@@ -411,6 +410,10 @@ function StudioMain() {
                     </div>
                 </div>
 
+                {enhanceError && (
+                  <p className="text-xs text-rose-400 font-medium px-2">{enhanceError}</p>
+                )}
+
                 <div className="flex flex-wrap gap-2">
                   {SUGGESTIONS.map((s) => (
                     <button
@@ -462,6 +465,9 @@ function StudioMain() {
                       </>
                     )}
                   </button>
+                  {generateError && (
+                    <p className="text-xs text-rose-400 text-center font-medium px-2">{generateError}</p>
+                  )}
                   {autoColorError && (
                     <p className="text-xs text-rose-400 text-center font-medium px-2">{autoColorError}</p>
                   )}
