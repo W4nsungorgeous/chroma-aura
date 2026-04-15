@@ -173,14 +173,13 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
     }
   }), [history, redoStack, imageUrl, saveState]);
 
-  // Initialize canvas when props or artboard dimensions change
+  // Effect 1: Initialize canvas dimensions and context — runs only when artboard size changes.
+  // Does NOT depend on imageUrl to avoid clearing the canvas on every new generation.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const dpr = window.devicePixelRatio || 1;
-    
-    // Set internal resolution only; CSS display size is handled by displaySize state
     canvas.width = artboardWidth * dpr;
     canvas.height = artboardHeight * dpr;
 
@@ -191,27 +190,42 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
       ctx.lineJoin = "round";
       contextRef.current = ctx;
 
-      // Fill with white background initially
       ctx.fillStyle = "white";
       ctx.fillRect(0, 0, artboardWidth, artboardHeight);
-
-      // Load image if provided
-      if (imageUrl) {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
-          const scale = Math.min(artboardWidth / img.width, artboardHeight / img.height);
-          const x = (artboardWidth - img.width * scale) / 2;
-          const y = (artboardHeight - img.height * scale) / 2;
-          ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-          saveState(); 
-        };
-        img.src = imageUrl;
-      } else {
-        saveState();
-      }
+      saveState();
     }
-  }, [artboardWidth, artboardHeight, imageUrl, saveState]); // Re-init correctly on size or image change
+  }, [artboardWidth, artboardHeight, saveState]);
+
+  // Effect 2: Draw imageUrl onto the canvas whenever the URL or artboard dimensions change.
+  // Separated from Effect 1 so a new image never causes a redundant canvas dimension reset.
+  // Tries with crossOrigin first (needed for flood-fill getImageData); silently falls back
+  // to a non-CORS load for display if the CDN rejects the preflight.
+  useEffect(() => {
+    if (!imageUrl) return;
+    const ctx = contextRef.current;
+    if (!ctx) return;
+
+    const load = (cors: boolean) => {
+      const img = new Image();
+      if (cors) img.crossOrigin = "anonymous";
+      img.onload = () => {
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, artboardWidth, artboardHeight);
+        const s = Math.min(artboardWidth / img.width, artboardHeight / img.height);
+        ctx.drawImage(
+          img,
+          (artboardWidth - img.width * s) / 2,
+          (artboardHeight - img.height * s) / 2,
+          img.width * s,
+          img.height * s,
+        );
+        saveState();
+      };
+      if (cors) img.onerror = () => load(false);
+      img.src = imageUrl;
+    };
+    load(true);
+  }, [imageUrl, artboardWidth, artboardHeight, saveState]);
 
   // Update context when tool/color/brushSize changes
   useEffect(() => {

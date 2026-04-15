@@ -1,16 +1,40 @@
 import { fal } from "@fal-ai/client";
 import { AIProvider, AIResponse, EnhanceResponse } from "../interface";
 
-const LINEART_MODIFIERS = [
-  "black and white lineart",
-  "coloring book style",
-  "sharp clean outlines",
-  "no shading",
-  "no color fill",
-  "white background",
-  "bold strokes",
-  "professional illustration",
-];
+/**
+ * Wraps the user's subject into a full coloring-page prompt.
+ * Written for Flux Dev: natural-language sentences outperform tag-soup for this model.
+ * The instruction set covers:
+ *   – medium & style  (clean ink line art, coloring book)
+ *   – line quality    (bold uniform weight, smooth flowing strokes, crisp edges)
+ *   – content rules   (no fills, no shading, no grey, no halftones)
+ *   – composition     (centered, fills the frame, generous white negative space)
+ *   – quality bar     (professional illustrator, print-ready)
+ */
+function buildLineartPrompt(subject: string): string {
+  return (
+    `A highly detailed coloring book page illustration of ${subject}. ` +
+    `Clean, bold black ink outlines on a pure white background. ` +
+    `Smooth flowing linework with intricate decorative details and elegant repeated patterns. ` +
+    `Uniform line weight throughout, crisp sharp edges, no sketchy or rough marks. ` +
+    `Absolutely no color fills, no grey tones, no shading, no gradients, no cross-hatching, no halftones. ` +
+    `Flat monochrome line drawing only. ` +
+    `Centered composition, subject fills the frame with generous white negative space inside shapes. ` +
+    `Professional adult coloring book style, print-ready quality.`
+  );
+}
+
+/**
+ * Quick prompt enhancement: enriches a short user phrase with coloring-page context
+ * without making an additional API call (purely local).
+ */
+function buildEnhancedHint(subject: string): string {
+  return (
+    `${subject}, intricate lineart coloring page, bold clean outlines, ` +
+    `detailed decorative patterns, no shading, no color fills, black and white only, ` +
+    `professional illustration, print-ready`
+  );
+}
 
 export class FalProvider implements AIProvider {
   name = "fal.ai (Flux Dev)";
@@ -23,7 +47,7 @@ export class FalProvider implements AIProvider {
 
   async generateLineart(prompt: string): Promise<AIResponse> {
     try {
-      const enhancedPrompt = `${prompt}, ${LINEART_MODIFIERS.join(", ")}`;
+      const enhancedPrompt = buildLineartPrompt(prompt);
 
       const result = await fal.subscribe("fal-ai/flux/dev", {
         input: {
@@ -53,7 +77,7 @@ export class FalProvider implements AIProvider {
   }
 
   async enhancePrompt(prompt: string): Promise<EnhanceResponse> {
-    const enhanced = `${prompt}, ${LINEART_MODIFIERS.slice(0, 4).join(", ")}, intricate details, perfect for coloring`;
+    const enhanced = buildEnhancedHint(prompt);
     return { enhanced, success: true };
   }
 
