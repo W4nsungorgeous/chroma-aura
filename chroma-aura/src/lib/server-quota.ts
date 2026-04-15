@@ -1,5 +1,9 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextRequest } from "next/server";
+
+// VIP access: granted to emails listed here OR to any Clerk user whose
+// publicMetadata.tier === "vip".  Add the owner account unconditionally.
+const VIP_EMAILS = new Set(["kellclosss@gmail.com"]);
 
 type Tier = "guest" | "member" | "vip";
 
@@ -41,9 +45,12 @@ export async function resolveQuotaKey(req: NextRequest): Promise<{ key: string; 
   const { userId } = await auth();
 
   if (userId) {
-    // VIP promotion happens client-side via Clerk metadata; server defaults to member.
-    // For full server-side VIP, wire up currentUser() + Supabase roles.
-    return { key: `user_${userId}`, tier: "member" };
+    const user = await currentUser();
+    const email = user?.emailAddresses?.[0]?.emailAddress ?? "";
+    const metaTier = user?.publicMetadata?.tier;
+    const tier: Tier =
+      VIP_EMAILS.has(email) || metaTier === "vip" ? "vip" : "member";
+    return { key: `user_${userId}`, tier };
   }
 
   // Guest: prefer FingerprintJS visitorId sent by the client, fall back to IP.

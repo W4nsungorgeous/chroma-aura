@@ -309,11 +309,28 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
     onAction?.();
   };
 
-  // BFS Flood Fill Implementation v3 (Darkness Boundary)
+  // BFS Flood Fill Implementation v5 (Balanced Threshold)
+  //
+  // FILL_THRESHOLD = 128  (50 % grey)
+  //   – BFS fills all pixels brighter than 128 (white → light-grey).
+  //     This covers the bulk of the anti-aliased transition zone so no
+  //     visible white or light-grey ring is left around the filled region.
+  //   – Pixels ≤ 128 (medium-grey → black) are the outline zone; they
+  //     stop the BFS cleanly and are visually indistinguishable from the
+  //     black line, so no perceptible gap remains.
+  //
+  // Bleed pass (1 px, boundary-only)
+  //   – Expands fill colour one pixel into pixels whose brightness is
+  //     ≤ FILL_THRESHOLD (the outline zone), sealing any sub-pixel halo.
+  //   – Critically: NEVER bleeds into pixels > FILL_THRESHOLD.  Those
+  //     are the bright interiors of *neighbouring* regions, so this
+  //     single constraint prevents cross-region flooding entirely.
   const handleFloodFill = (startX: number, startY: number) => {
     const canvas = canvasRef.current;
     const ctx = contextRef.current;
     if (!canvas || !ctx) return;
+
+    const FILL_THRESHOLD = 128;
 
     const dpr = window.devicePixelRatio || 1;
     const x = Math.round(startX * dpr);
@@ -324,62 +341,62 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
     const w = canvas.width;
     const h = canvas.height;
 
-    // Check if user clicked on a dark boundary already
-    const initialPixel = getPixelColor(data, x, y, w);
-    const initialBrightness = (initialPixel[0] + initialPixel[1] + initialPixel[2]) / 3;
-    if (initialBrightness < 100) return; // Don't fill the lines themselves
+    // Reject clicks directly on a line / boundary pixel
+    const ip = getPixelColor(data, x, y, w);
+    if ((ip[0] + ip[1] + ip[2]) / 3 <= FILL_THRESHOLD) return;
 
     const fillColor = hexToRgb(color);
     const stack: number[] = [y * w + x];
     const visited = new Uint8Array(w * h);
     const filledIndices = new Set<number>();
 
-    // Boundary threshold: anything darker than 110 is considered part of the "line" transition
-    // but the BFS will fill anything that's "not dark"
+    // ── Phase 1: BFS through bright pixels (> FILL_THRESHOLD) ──────────────
     while (stack.length > 0) {
       const idx = stack.pop()!;
       if (visited[idx]) continue;
       visited[idx] = 1;
 
-      const currX = idx % w;
-      const currY = Math.floor(idx / w);
+      const cx = idx % w;
+      const cy = Math.floor(idx / w);
+      if (cx < 0 || cx >= w || cy < 0 || cy >= h) continue;
 
-      if (currX < 0 || currX >= w || currY < 0 || currY >= h) continue;
-
-      const currColor = getPixelColor(data, currX, currY, w);
-      const brightness = (currColor[0] + currColor[1] + currColor[2]) / 3;
-      
-      // If the pixel is not dark (brightness > threshold), it's part of the fillable area
-      // We use a relatively high threshold to capture the soft anti-aliased edges
-      if (brightness > 90) {
-        setPixelColor(data, currX, currY, w, fillColor);
+      const c = getPixelColor(data, cx, cy, w);
+      if ((c[0] + c[1] + c[2]) / 3 > FILL_THRESHOLD) {
+        setPixelColor(data, cx, cy, w, fillColor);
         filledIndices.add(idx);
 
-        if (currX + 1 < w) stack.push(idx + 1);
-        if (currX - 1 >= 0) stack.push(idx - 1);
-        if (currY + 1 < h) stack.push(idx + w);
-        if (currY - 1 >= 0) stack.push(idx - w);
+        if (cx + 1 < w) stack.push(idx + 1);
+        if (cx - 1 >= 0) stack.push(idx - 1);
+        if (cy + 1 < h) stack.push(idx + w);
+        if (cy - 1 >= 0) stack.push(idx - w);
       }
     }
 
-    // Final "Bleed" pass: expand 1.5px into the DARK pixels to ensure perfect coverage
-    const toExpand = Array.from(filledIndices);
-    for (const idx of toExpand) {
-      const currX = idx % w;
-      const currY = Math.floor(idx / w);
+    // ── Phase 2: 1-pixel bleed into the outline zone ────────────────────────
+    // Colours the dark/anti-aliased pixels immediately bordering the fill so
+    // there is no visible halo.  The constraint `nBrightness <= FILL_THRESHOLD`
+    // guarantees the bleed NEVER enters a neighbouring region's bright interior.
+    for (const idx of filledIndices) {
+      const cx = idx % w;
+      const cy = Math.floor(idx / w);
 
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
-          const nX = currX + dx;
-          const nY = currY + dy;
-          if (nX < 0 || nX >= w || nY < 0 || nY >= h) continue;
-          
-          const nIdx = nY * w + nX;
+          const nx = cx + dx;
+          const ny = cy + dy;
+          if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+
+          const nIdx = ny * w + nx;
           if (visited[nIdx]) continue;
-          
-          // Even if it's dark, we bleed 1px into it
-          setPixelColor(data, nX, nY, w, fillColor);
-          visited[nIdx] = 1;
+
+          const nc = getPixelColor(data, nx, ny, w);
+          const nb = (nc[0] + nc[1] + nc[2]) / 3;
+
+          // Only bleed into outline/boundary pixels — never into bright open areas
+          if (nb <= FILL_THRESHOLD) {
+            setPixelColor(data, nx, ny, w, fillColor);
+            visited[nIdx] = 1;
+          }
         }
       }
     }
@@ -402,15 +419,6 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
     data[idx + 3] = 255;
   };
 
-  const colorsMatch = (c1: number[], c2: number[], threshold = 0) => {
-    // Euclidean distance in RGB space is more accurate for perception
-    const dist = Math.sqrt(
-      Math.pow(c1[0] - c2[0], 2) +
-      Math.pow(c1[1] - c2[1], 2) +
-      Math.pow(c1[2] - c2[2], 2)
-    );
-    return dist <= threshold;
-  };
 
   const hexToRgb = (hex: string) => {
     const r = parseInt(hex.slice(1, 3), 16);

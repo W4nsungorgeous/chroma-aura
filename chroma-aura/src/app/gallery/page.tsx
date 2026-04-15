@@ -21,64 +21,64 @@ const SAMPLES = [
     title: "Anime Neon Soul", 
     artist: "ZenColors", 
     likes: 89, 
-    lineart: "/ai/latest_lineart.png", 
-    colored: "/ai/latest_autocolor.png",
+    lineart: "/gallery/anime_neon_soul_lineart.png", 
+    colored: "/gallery/anime_neon_soul_colored.png",
     tag: "Anime",
-    filter: "contrast-150 saturate-200 hue-rotate-180" 
+    filter: "" 
   },
   { 
     title: "Golden Mythic Wings", 
     artist: "MythicMina", 
     likes: 167, 
-    lineart: "/ai/latest_lineart.png", 
-    colored: "/ai/latest_autocolor.png",
+    lineart: "/gallery/golden_mythic_wings_lineart.png", 
+    colored: "/gallery/golden_mythic_wings_colored.png",
     tag: "Fantasy",
-    filter: "sepia brightness-90 contrast-125 saturate-50"
+    filter: ""
   },
   { 
     title: "Cyber City Monarch", 
     artist: "StellarCat", 
     likes: 256, 
-    lineart: "/ai/latest_lineart.png", 
-    colored: "/ai/latest_autocolor.png",
+    lineart: "/gallery/cyber_city_monarch_lineart.png", 
+    colored: "/gallery/cyber_city_monarch_colored.png",
     tag: "Cyberpunk",
-    filter: "invert-10 hue-rotate-90 brightness-110"
+    filter: ""
   },
   { 
     title: "Steampunk Core", 
     artist: "SteamMaster", 
     likes: 312, 
-    lineart: "/ai/latest_lineart.png", 
-    colored: "/ai/latest_autocolor.png",
+    lineart: "/gallery/steampunk_core_lineart.png", 
+    colored: "/gallery/steampunk_core_colored.png",
     tag: "Steampunk",
-    filter: "brightness-75 contrast-150 sepia(0.8) hue-rotate-[-30deg]"
+    filter: ""
   },
   { 
     title: "Ukiyo-e Legacy", 
     artist: "WaveRunner", 
     likes: 204, 
-    lineart: "/ai/latest_lineart.png", 
-    colored: "/ai/latest_autocolor.png",
+    lineart: "/gallery/ukiyoe_legacy_lineart.png", 
+    colored: "/gallery/ukiyoe_legacy_colored.png",
     tag: "Traditional",
-    filter: "contrast-90 saturate-50 sepia-20 brightness-105"
+    filter: ""
   },
   { 
     title: "Bioluminescent Rift", 
     artist: "NeonDeep", 
     likes: 421, 
-    lineart: "/ai/latest_lineart.png", 
-    colored: "/ai/latest_autocolor.png",
+    lineart: "/gallery/bioluminescent_rift_lineart.png", 
+    colored: "/gallery/bioluminescent_rift_colored.png",
     tag: "Deep Sea",
-    filter: "invert saturate-150 hue-rotate-200"
+    filter: ""
   },
   { 
     title: "Midnight Cathedral", 
     artist: "Nightshade", 
     likes: 156, 
-    lineart: "/ai/latest_lineart.png", 
-    colored: "/ai/latest_autocolor.png",
+    lineart: "/gallery/midnight_cathedral_lineart.png", 
+    colored: "/gallery/midnight_cathedral_colored.png",
     tag: "Gothic",
-    filter: "grayscale brightness-50 contrast-200"
+    filter: ""
   },
 ];
 

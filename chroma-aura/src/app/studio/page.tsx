@@ -112,23 +112,61 @@ function StudioMain() {
     setSavedProjects(sampleProjects);
   };
 
-  // Save history only after initialization
+  // Save history only after initialization.
+  // Wrapped in try-catch: if localStorage quota is exceeded, trim oldest entries and retry.
   useEffect(() => {
-    if (isHistoryLoaded) {
-      localStorage.setItem("chroma_aura_history", JSON.stringify(savedProjects));
+    if (!isHistoryLoaded) return;
+    const persist = (projects: SavedProject[]) => {
+      try {
+        localStorage.setItem("chroma_aura_history", JSON.stringify(projects));
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    if (!persist(savedProjects)) {
+      // Remove oldest entries one by one until it fits
+      setSavedProjects(prev => {
+        let trimmed = prev.slice(0, Math.max(1, prev.length - 2));
+        while (trimmed.length > 1 && !persist(trimmed)) {
+          trimmed = trimmed.slice(0, trimmed.length - 1);
+        }
+        return trimmed;
+      });
     }
   }, [savedProjects, isHistoryLoaded]);
 
-  const handleSaveProject = () => {
+  // Compress a full-resolution canvas data URL to a smaller JPEG for localStorage.
+  // Reduces a 2048×2048 PNG (~400 KB base64) to a 600px-max JPEG (~25 KB base64).
+  const compressDataUrl = (fullDataUrl: string): Promise<string> =>
+    new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 600;
+        const scale = Math.min(1, MAX / img.width, MAX / img.height);
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const off = document.createElement("canvas");
+        off.width = w;
+        off.height = h;
+        off.getContext("2d")!.drawImage(img, 0, 0, w, h);
+        resolve(off.toDataURL("image/jpeg", 0.75));
+      };
+      img.onerror = () => resolve(fullDataUrl); // fallback: keep original
+      img.src = fullDataUrl;
+    });
+
+  const handleSaveProject = async () => {
     if (!canvasRef.current) return;
-    const dataUrl = canvasRef.current.getCanvasData();
+    const dataUrl = await compressDataUrl(canvasRef.current.getCanvasData());
     const newProject: SavedProject = {
       id: Math.random().toString(36).substr(2, 9),
       dataUrl,
-      lineartUrl,          // always the original AI lineart, never the auto-colored result
-      timestamp: Date.now()
+      lineartUrl,   // always the original AI lineart, never the auto-colored result
+      timestamp: Date.now(),
     };
-    setSavedProjects(prev => [newProject, ...prev]);
+    // Cap history at 20 items so localStorage stays well within the 5 MB limit
+    setSavedProjects(prev => [newProject, ...prev.slice(0, 19)]);
   };
 
   const handleLoadHistory = async (project: SavedProject) => {
@@ -293,10 +331,13 @@ function StudioMain() {
         body: JSON.stringify({ prompt }),
       });
       const data = await response.json();
-      if (data.success && decrementGeneration()) {
+      if (data.success) {
+        // Always display the result — quota is enforced server-side.
+        // decrementGeneration() is a UI counter only; never gate image display on it.
         setGeneratedImage(data.imageUrl);
-        setLineartUrl(data.imageUrl);  // record original lineart for auto-color source
+        setLineartUrl(data.imageUrl);
         setPrompt("");
+        decrementGeneration();
       }
     } finally { setIsGenerating(false); }
   };
@@ -651,6 +692,114 @@ function StudioMain() {
                   cssZoom={isFullscreen ? zoom : 1}
                 />
               </div>
+
+              {/* ── AI Loading Overlay ─────────────────────────────────────── */}
+              <AnimatePresence>
+                {(isGenerating || isAutoColoring) && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className={cn(
+                      "absolute inset-0 z-[60] flex items-center justify-center overflow-hidden",
+                      !isFullscreen && "rounded-[48px]"
+                    )}
+                  >
+                    {/* Blurred backdrop */}
+                    <div className="absolute inset-0 bg-background/55 backdrop-blur-2xl" />
+
+                    {/* Ambient glow orbs */}
+                    <motion.div
+                      animate={{ scale: [1, 1.25, 1], opacity: [0.25, 0.45, 0.25] }}
+                      transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
+                      className="absolute w-72 h-72 rounded-full bg-primary/30 blur-3xl -translate-x-16 -translate-y-8"
+                    />
+                    <motion.div
+                      animate={{ scale: [1.15, 1, 1.15], opacity: [0.15, 0.35, 0.15] }}
+                      transition={{ repeat: Infinity, duration: 4.5, ease: "easeInOut", delay: 1.2 }}
+                      className="absolute w-56 h-56 rounded-full bg-violet-500/25 blur-3xl translate-x-20 translate-y-12"
+                    />
+                    <motion.div
+                      animate={{ scale: [1, 1.3, 1], opacity: [0.1, 0.25, 0.1] }}
+                      transition={{ repeat: Infinity, duration: 5, ease: "easeInOut", delay: 2.5 }}
+                      className="absolute w-40 h-40 rounded-full bg-pink-400/20 blur-3xl -translate-x-24 translate-y-20"
+                    />
+
+                    {/* Content card */}
+                    <motion.div
+                      initial={{ scale: 0.88, y: 16, opacity: 0 }}
+                      animate={{ scale: 1, y: 0, opacity: 1 }}
+                      exit={{ scale: 0.88, y: 16, opacity: 0 }}
+                      transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+                      className="relative z-10 flex flex-col items-center gap-7 px-12 py-10 rounded-[36px] bg-background/50 border border-white/10 shadow-2xl backdrop-blur-3xl"
+                    >
+                      {/* Pulsing icon */}
+                      <div className="relative flex items-center justify-center">
+                        <motion.div
+                          animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0, 0.4] }}
+                          transition={{ repeat: Infinity, duration: 2.2, ease: "easeOut" }}
+                          className="absolute w-20 h-20 rounded-3xl bg-primary/40 blur-xl"
+                        />
+                        <motion.div
+                          animate={{ rotate: [0, 15, -15, 0] }}
+                          transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+                          className="relative w-16 h-16 rounded-3xl bg-iridescent flex items-center justify-center shadow-2xl shadow-primary/40"
+                        >
+                          <Sparkles className="w-8 h-8 text-white drop-shadow" />
+                        </motion.div>
+                      </div>
+
+                      {/* Labels */}
+                      <div className="text-center space-y-1.5">
+                        <motion.h3
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.15 }}
+                          className="text-xl font-bold tracking-tight"
+                        >
+                          {isGenerating ? "Generating Lineart" : "AI Auto-Coloring"}
+                        </motion.h3>
+                        <motion.p
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.22 }}
+                          className="text-sm text-foreground/40 font-medium"
+                        >
+                          {isGenerating
+                            ? "Transforming your imagination into art…"
+                            : "Painting every region with vibrant colors…"}
+                        </motion.p>
+                      </div>
+
+                      {/* Indeterminate progress bar */}
+                      <div className="w-52 space-y-2">
+                        <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                          <motion.div
+                            className="h-full w-2/5 rounded-full"
+                            style={{
+                              background: "linear-gradient(90deg, transparent 0%, #8B5CF6 40%, #EC4899 60%, transparent 100%)",
+                            }}
+                            animate={{ x: ["-160%", "400%"] }}
+                            transition={{ repeat: Infinity, duration: 1.6, ease: "easeInOut" }}
+                          />
+                        </div>
+                        {/* Shimmer dots */}
+                        <div className="flex items-center justify-center gap-1.5">
+                          {[0, 1, 2].map((i) => (
+                            <motion.div
+                              key={i}
+                              animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8] }}
+                              transition={{ repeat: Infinity, duration: 1.2, delay: i * 0.2, ease: "easeInOut" }}
+                              className="w-1.5 h-1.5 rounded-full bg-primary/60"
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Maximize button — only in normal mode */}
               {!isFullscreen && (
