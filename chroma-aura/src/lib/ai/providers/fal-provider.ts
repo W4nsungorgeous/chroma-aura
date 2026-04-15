@@ -2,25 +2,22 @@ import { fal } from "@fal-ai/client";
 import { AIProvider, AIResponse, EnhanceResponse } from "../interface";
 
 /**
- * Wraps the user's subject into a full coloring-page prompt.
- * Written for Flux Dev: natural-language sentences outperform tag-soup for this model.
- * The instruction set covers:
- *   – medium & style  (clean ink line art, coloring book)
- *   – line quality    (bold uniform weight, smooth flowing strokes, crisp edges)
- *   – content rules   (no fills, no shading, no grey, no halftones)
- *   – composition     (centered, fills the frame, generous white negative space)
- *   – quality bar     (professional illustrator, print-ready)
+ * Wraps the user's subject into a full coloring-page prompt for Flux Dev.
+ * Key constraints for coloring-book UX:
+ *   – closed loops   : every line must form a completely enclosed path (flood-fill requirement)
+ *   – enclosed cells : numerous small interlocking sections give colorists variety
+ *   – flat 2D vector : no shading, no gradients, no grayscale — pure black on white
+ *   – crisp linework : uniform weight, high contrast, print-ready
  */
 function buildLineartPrompt(subject: string): string {
   return (
-    `A highly detailed coloring book page illustration of ${subject}. ` +
-    `Clean, bold black ink outlines on a pure white background. ` +
-    `Smooth flowing linework with intricate decorative details and elegant repeated patterns. ` +
-    `Uniform line weight throughout, crisp sharp edges, no sketchy or rough marks. ` +
-    `Absolutely no color fills, no grey tones, no shading, no gradients, no cross-hatching, no halftones. ` +
-    `Flat monochrome line drawing only. ` +
-    `Centered composition, subject fills the frame with generous white negative space inside shapes. ` +
-    `Professional adult coloring book style, print-ready quality.`
+    `Professional coloring book illustration of ${subject}. ` +
+    `Clean, precise bold black line art on a pure white background, flat 2D vector style, high contrast. ` +
+    `Every line forms a completely closed loop with no gaps, breaks, or open ends to enable precise flood-fill coloring. ` +
+    `Intricate decorative patterns with numerous small, distinct, interlocking enclosed sections throughout. ` +
+    `Smooth uniform linework, crisp sharp edges. ` +
+    `Strictly no shading, no gradients, no grayscale, no cross-hatching, no color fills. ` +
+    `Centered composition, subject fills the frame. Print-ready quality.`
   );
 }
 
