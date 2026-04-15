@@ -25,8 +25,13 @@ function StudioMain() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [isAutoColoring, setIsAutoColoring] = useState(false);
+  const [autoColorError, setAutoColorError] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
+  // generatedImage: what is currently rendered on the canvas (may be lineart OR auto-colored result)
   const [generatedImage, setGeneratedImage] = useState<string | undefined>(undefined);
+  // lineartUrl: the original AI-generated lineart — never overwritten by auto-color results,
+  // always used as the source for "AI Auto-Color" so re-coloring is idempotent.
+  const [lineartUrl, setLineartUrl] = useState<string | undefined>(undefined);
   const [canvasSize, setCanvasSize] = useState({ width: 1024, height: 1024, ratio: "1:1" });
   const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
   const [isHistoryLoaded, setIsHistoryLoaded] = useState(false);
@@ -34,7 +39,8 @@ function StudioMain() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [idsToDelete, setIdsToDelete] = useState<string[]>([]);
-  const [stashState, setStashState] = useState<string | null>(null);
+  // Stash preserves both canvas pixels and lineartUrl so "Back to Live Session" fully restores state.
+  const [stashState, setStashState] = useState<{ canvas: string; lineartUrl: string | undefined } | null>(null);
   
   const canvasRef = useRef<ColoringCanvasRef>(null);
 
@@ -50,10 +56,12 @@ function StudioMain() {
   const searchParams = useSearchParams();
   const remixUrl = searchParams.get("lineart");
 
-  // Handle Remix initialization
+  // Handle Remix initialization — treat the remixed lineart as both the canvas image and the lineart source
   useEffect(() => {
     if (remixUrl) {
-      setGeneratedImage(decodeURIComponent(remixUrl));
+      const decoded = decodeURIComponent(remixUrl);
+      setGeneratedImage(decoded);
+      setLineartUrl(decoded);
     }
   }, [remixUrl]);
 
@@ -107,7 +115,7 @@ function StudioMain() {
     const newProject: SavedProject = {
       id: Math.random().toString(36).substr(2, 9),
       dataUrl,
-      lineartUrl: generatedImage,
+      lineartUrl,          // always the original AI lineart, never the auto-colored result
       timestamp: Date.now()
     };
     setSavedProjects(prev => [newProject, ...prev]);
@@ -115,10 +123,12 @@ function StudioMain() {
 
   const handleLoadHistory = async (project: SavedProject) => {
     if (!canvasRef.current) return;
+    // Stash current canvas pixels AND lineartUrl so "Back to Live Session" fully restores state
     if (!stashState) {
-      setStashState(canvasRef.current.getCanvasData());
+      setStashState({ canvas: canvasRef.current.getCanvasData(), lineartUrl });
     }
     await canvasRef.current.loadCanvasData(project.dataUrl);
+    setLineartUrl(project.lineartUrl);   // restore this project's original lineart for auto-color
     setIsViewingHistory(false);
   };
 
@@ -168,7 +178,8 @@ function StudioMain() {
 
   const handleReturnToActive = async () => {
     if (!canvasRef.current || !stashState) return;
-    await canvasRef.current.loadCanvasData(stashState);
+    await canvasRef.current.loadCanvasData(stashState.canvas);
+    setLineartUrl(stashState.lineartUrl);  // restore the live session's original lineart
     setStashState(null);
   };
 
@@ -190,21 +201,38 @@ function StudioMain() {
   };
 
   const handleAutoColor = async () => {
-    if (drawingQuota.used >= drawingQuota.limit) return alert("Quota reached");
+    if (!lineartUrl || isAutoColoring) return;
+    if (drawingQuota.used >= drawingQuota.limit) {
+      setAutoColorError("Drawing quota reached. Please try again tomorrow.");
+      return;
+    }
     setIsAutoColoring(true);
+    setAutoColorError(null);
     try {
       const response = await fetch("/api/ai/autocolor", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...deviceHeader },
-        body: JSON.stringify({ imageUrl: generatedImage || "initial" }),
+        // Always send the original lineart — never the auto-colored result —
+        // so repeated auto-color calls produce independent variations, not compounding effects.
+        body: JSON.stringify({ imageUrl: lineartUrl }),
       });
       const data = await response.json();
-      if (data.success && decrementDrawing()) setGeneratedImage(data.imageUrl);
-    } finally { setIsAutoColoring(false); }
+      if (data.success) {
+        decrementDrawing();
+        setGeneratedImage(data.imageUrl); // display the colored result on canvas
+        // lineartUrl intentionally unchanged — original lineart stays as the auto-color source
+      } else {
+        setAutoColorError(data.error || "Auto-color failed. Please try again.");
+      }
+    } catch {
+      setAutoColorError("Connection error. Please try again.");
+    } finally {
+      setIsAutoColoring(false);
+    }
   };
 
   const handleGenerate = async () => {
-    if (!prompt || generationQuota.used >= generationQuota.limit) return;
+    if (!prompt || isGenerating || generationQuota.used >= generationQuota.limit) return;
     setIsGenerating(true);
     try {
       const response = await fetch("/api/generate", {
@@ -215,6 +243,7 @@ function StudioMain() {
       const data = await response.json();
       if (data.success && decrementGeneration()) {
         setGeneratedImage(data.imageUrl);
+        setLineartUrl(data.imageUrl);  // record original lineart for auto-color source
         setPrompt("");
       }
     } finally { setIsGenerating(false); }
@@ -320,8 +349,8 @@ function StudioMain() {
                     )}
                   </button>
 
-                  <button 
-                    disabled={isAutoColoring || !generatedImage}
+                  <button
+                    disabled={isAutoColoring || !lineartUrl}
                     onClick={handleAutoColor}
                     className="w-full py-4 rounded-2xl bg-iridescent text-white font-bold flex items-center justify-center gap-3 hover:opacity-90 disabled:opacity-50 transition-all shadow-xl shadow-primary/20 group active:scale-[0.98]"
                   >
@@ -340,6 +369,9 @@ function StudioMain() {
                       </>
                     )}
                   </button>
+                  {autoColorError && (
+                    <p className="text-xs text-rose-400 text-center font-medium px-2">{autoColorError}</p>
+                  )}
                 </div>
               </div>
             </div>
