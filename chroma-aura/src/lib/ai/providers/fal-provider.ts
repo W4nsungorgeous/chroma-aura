@@ -4,20 +4,23 @@ import { AIProvider, AIResponse, EnhanceResponse } from "../interface";
 /**
  * Wraps the user's subject into a full coloring-page prompt for Flux Dev.
  * Key constraints for coloring-book UX:
- *   – closed loops   : every line must form a completely enclosed path (flood-fill requirement)
- *   – enclosed cells : numerous small interlocking sections give colorists variety
- *   – flat 2D vector : no shading, no gradients, no grayscale — pure black on white
- *   – crisp linework : uniform weight, high contrast, print-ready
+ *   – closed loops   : every outline must be a fully sealed path (flood-fill requirement)
+ *   – dense cells    : many small independently-colorable enclosed regions (prevents one-tap flood)
+ *   – micro-detail   : fine interior line patterns subdivide large shapes into smaller cells
+ *   – flat B&W       : no shading, no gradients, no halftones — pure black on white
  */
 function buildLineartPrompt(subject: string): string {
   return (
-    `Professional coloring book illustration of ${subject}. ` +
-    `Clean, precise bold black line art on a pure white background, flat 2D vector style, high contrast. ` +
-    `Every line forms a completely closed loop with no gaps, breaks, or open ends to enable precise flood-fill coloring. ` +
-    `Intricate decorative patterns with numerous small, distinct, interlocking enclosed sections throughout. ` +
-    `Smooth uniform linework, crisp sharp edges. ` +
-    `Strictly no shading, no gradients, no grayscale, no cross-hatching, no color fills. ` +
-    `Centered composition, subject fills the frame. Print-ready quality.`
+    `A highly detailed coloring book page illustration of ${subject}. ` +
+    `Clean, bold black ink outlines on a pure white background. ` +
+    `Smooth flowing linework with intricate decorative details and elegant repeated patterns. ` +
+    `Uniform line weight throughout, crisp sharp edges, no sketchy or rough marks. ` +
+    `Every outline must form a fully closed loop with zero gaps or open ends, so each region can be flood-filled independently. ` +
+    `Subdivide each large shape into many small distinct enclosed cells using decorative interior lines, fine filigree, and micro-detail patterns — maximizing the number of separately colorable areas. ` +
+    `Absolutely no color fills, no grey tones, no shading, no gradients, no cross-hatching, no halftones. ` +
+    `Flat monochrome line drawing only. ` +
+    `Centered composition, subject fills the frame with generous white negative space inside shapes. ` +
+    `Professional adult coloring book style, print-ready quality.`
   );
 }
 
