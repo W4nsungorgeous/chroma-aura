@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { Check, Sparkles, Zap, Star, Diamond } from "lucide-react";
@@ -9,6 +10,7 @@ import { cn } from "@/lib/utils";
 
 const TIERS = [
   {
+    id: "starter_monthly",
     name: "Starter",
     price: "4.99",
     description: "Perfect for casual creators.",
@@ -24,6 +26,7 @@ const TIERS = [
     icon: <Zap className="w-6 h-6 text-yellow-500" />
   },
   {
+    id: "pro_monthly",
     name: "Pro",
     price: "12.99",
     description: "The sweet spot for active artists.",
@@ -41,6 +44,7 @@ const TIERS = [
     icon: <Star className="w-6 h-6 text-primary" />
   },
   {
+    id: "studio_monthly",
     name: "Studio",
     price: "29.99",
     description: "Ultimate limit for absolute freedom.",
@@ -60,10 +64,15 @@ const TIERS = [
 
 export default function PricingPage() {
   const [mounted, setMounted] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handlePlanClick = (planId: string) => {
+    router.push(`/checkout?plan=${planId}`);
+  };
 
   return (
     <main className="min-h-screen bg-background flex flex-col pt-32">
@@ -130,10 +139,12 @@ export default function PricingPage() {
                  ))}
               </ul>
 
-              <button className={cn(
+              <button
+                onClick={() => handlePlanClick(tier.id)}
+                className={cn(
                 "w-full py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg hover:scale-105 active:scale-95",
-                tier.highlight 
-                  ? "bg-foreground text-background" 
+                tier.highlight
+                  ? "bg-foreground text-background"
                   : "bg-icon-bg text-foreground hover:bg-icon-bg/80"
               )}>
                  {tier.buttonText}
@@ -162,7 +173,10 @@ export default function PricingPage() {
                   <span className="text-text-muted">/</span>
                   <span className="text-2xl font-black text-primary">1 Credit</span>
                </div>
-               <button className="px-8 py-3 rounded-xl bg-foreground text-background font-bold hover:scale-105 transition-all shadow-md w-full active:scale-95">
+               <button
+                 onClick={() => handlePlanClick("credits_50")}
+                 className="px-8 py-3 rounded-xl bg-foreground text-background font-bold hover:scale-105 transition-all shadow-md w-full active:scale-95"
+               >
                   Buy Credits
                </button>
             </div>

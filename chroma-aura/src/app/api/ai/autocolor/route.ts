@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiBridge } from "@/lib/ai/bridge";
-import { resolveQuotaKey, checkDrawingQuota, consumeDrawingQuota } from "@/lib/server-quota";
+import {
+  resolveQuotaKey,
+  checkDrawingQuota,
+  consumeDrawingQuota,
+  consumePermanentCredit,
+} from "@/lib/server-quota";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,13 +19,19 @@ export async function POST(req: NextRequest) {
     if (
       typeof imageUrl !== "string" ||
       imageUrl.length > 2_000_000 ||
-      (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://") && !imageUrl.startsWith("data:"))
+      (!imageUrl.startsWith("http://") &&
+        !imageUrl.startsWith("https://") &&
+        !imageUrl.startsWith("data:"))
     ) {
       return NextResponse.json({ success: false, error: "Invalid image URL" }, { status: 400 });
     }
 
-    const { key, tier } = await resolveQuotaKey(req);
-    if (!checkDrawingQuota(key, tier)) {
+    const { key, tier, userId, permanentCredits } = await resolveQuotaKey(req);
+
+    const planHasQuota = checkDrawingQuota(key, tier);
+    const canUseCredit = !planHasQuota && permanentCredits > 0 && userId !== null;
+
+    if (!planHasQuota && !canUseCredit) {
       return NextResponse.json(
         {
           success: false,
@@ -36,7 +47,12 @@ export async function POST(req: NextRequest) {
     const response = await aiBridge.autoColor(imageUrl);
 
     if (response.success) {
-      consumeDrawingQuota(key, tier);
+      if (planHasQuota) {
+        consumeDrawingQuota(key, tier);
+      } else {
+        // Deduct one permanent credit as fallback
+        await consumePermanentCredit(userId!);
+      }
     }
 
     return NextResponse.json(response);

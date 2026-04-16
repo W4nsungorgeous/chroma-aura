@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiBridge } from "@/lib/ai/bridge";
 import { filterPrompt } from "@/lib/content-filter";
-import { resolveQuotaKey, checkGenerationQuota, consumeGenerationQuota } from "@/lib/server-quota";
+import {
+  resolveQuotaKey,
+  checkGenerationQuota,
+  consumeGenerationQuota,
+  consumePermanentCredit,
+} from "@/lib/server-quota";
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,8 +21,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: filter.reason }, { status: 422 });
     }
 
-    const { key, tier } = await resolveQuotaKey(req);
-    if (!checkGenerationQuota(key, tier)) {
+    const { key, tier, userId, permanentCredits } = await resolveQuotaKey(req);
+
+    const planHasQuota = checkGenerationQuota(key, tier);
+    const canUseCredit = !planHasQuota && permanentCredits > 0 && userId !== null;
+
+    if (!planHasQuota && !canUseCredit) {
       return NextResponse.json(
         {
           success: false,
@@ -33,7 +42,12 @@ export async function POST(req: NextRequest) {
     const response = await aiBridge.generate(prompt);
 
     if (response.success) {
-      consumeGenerationQuota(key, tier);
+      if (planHasQuota) {
+        consumeGenerationQuota(key, tier);
+      } else {
+        // Deduct one permanent credit as fallback
+        await consumePermanentCredit(userId!);
+      }
     }
 
     return NextResponse.json(response);

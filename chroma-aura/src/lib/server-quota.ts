@@ -1,37 +1,35 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
 import { NextRequest } from "next/server";
 
 // VIP access: granted to emails listed here OR to any Clerk user whose
 // publicMetadata.tier === "vip".  Add the owner account unconditionally.
 const VIP_EMAILS = new Set(["kellclosss@gmail.com"]);
 
-type Tier = "guest" | "member" | "starter" | "pro" | "studio" | "vip";
+export type Tier = "guest" | "member" | "starter" | "pro" | "studio" | "vip";
 
 const TIER_LIMITS: Record<Tier, { generation: number; drawing: number }> = {
-  guest:  { generation: 2,    drawing: 0    }, // lifetime teaser — no reset
-  member: { generation: 3,   drawing: 2    }, // resets weekly
-  starter: { generation: 60, drawing: 20 },
-  pro: { generation: 200, drawing: 80 },
-  studio: { generation: 600, drawing: 200 },
-  vip:    { generation: 9999, drawing: 9999 },
+  guest:   { generation: 2,    drawing: 0    }, // lifetime teaser — no reset
+  member:  { generation: 3,    drawing: 2    }, // resets weekly (Monday UTC)
+  starter: { generation: 60,   drawing: 20   }, // monthly via Paddle subscription
+  pro:     { generation: 200,  drawing: 80   },
+  studio:  { generation: 600,  drawing: 200  },
+  vip:     { generation: 9999, drawing: 9999 },
 };
 
 interface QuotaRecord {
   generationUsed: number;
   drawingUsed: number;
-  periodStart: string; // "YYYY-MM-DD" — daily for guest, weekly (Mon) for member
+  periodStart: string; // "YYYY-MM-DD" | "permanent"
 }
 
 // In-memory store: resets on server restart.
 // TODO: replace with Supabase `quotas` table for production persistence.
 const store = new Map<string, QuotaRecord>();
 
-/** Returns today's date as "YYYY-MM-DD" (UTC). */
 function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** Returns the ISO date of Monday of the current UTC week ("YYYY-MM-DD"). */
 function weekStart(): string {
   const d = new Date();
   const day = d.getUTCDay(); // 0=Sun … 6=Sat
@@ -41,11 +39,10 @@ function weekStart(): string {
   return monday.toISOString().slice(0, 10);
 }
 
-/** Returns the expected period-start string for the given tier. */
 function getPeriodStart(tier: Tier): string {
-  if (tier === "guest") return "permanent";
-  if (tier === "member") return weekStart();
-  return today(); // paid plans reset info should be from db eventually; fallback to daily today for simplicity until billing works
+  if (tier === "guest")   return "permanent"; // no reset for guest teaser
+  if (tier === "member")  return weekStart();
+  return today(); // paid plans: daily in-memory (DB will own this long-term)
 }
 
 function getRecord(key: string, tier: Tier): QuotaRecord {
@@ -59,32 +56,45 @@ function getRecord(key: string, tier: Tier): QuotaRecord {
   return rec;
 }
 
-// FingerprintJS visitorId is a 20-32 char hex/alphanumeric string.
+// ── FingerprintJS visitorId format ─────────────────────────────────────────
 const FINGERPRINT_RE = /^[a-zA-Z0-9_-]{16,64}$/;
 
-export async function resolveQuotaKey(req: NextRequest): Promise<{ key: string; tier: Tier }> {
+// ── resolveQuotaKey ────────────────────────────────────────────────────────
+export async function resolveQuotaKey(req: NextRequest): Promise<{
+  key: string;
+  tier: Tier;
+  /** Clerk userId — null for guests */
+  userId: string | null;
+  /** Permanent pay-as-you-go credits in Clerk metadata (0 for guests) */
+  permanentCredits: number;
+}> {
   const { userId } = await auth();
 
   if (userId) {
     const user = await currentUser();
     const email = user?.emailAddresses?.[0]?.emailAddress ?? "";
-    const metaTier = user?.publicMetadata?.tier as Tier | undefined;
-    const role = user?.publicMetadata?.role as string | undefined;
+    const meta = (user?.publicMetadata ?? {}) as Record<string, unknown>;
+    const metaTier = meta.tier as Tier | undefined;
+    const role = meta.role as string | undefined;
+    const permanentCredits = Number(meta.permanentCredits ?? 0);
 
     let tier: Tier = "member";
     if (VIP_EMAILS.has(email) || metaTier === "vip" || role === "vip" || role === "admin") {
       tier = "vip";
-    } else if (role === "starter" || role === "pro" || role === "studio") {
-      tier = role as Tier;
+    } else if (
+      metaTier === "starter" || metaTier === "pro" || metaTier === "studio"
+    ) {
+      // Honour the tier written by the Paddle webhook
+      tier = metaTier;
     }
 
-    return { key: `user_${userId}`, tier };
+    return { key: `user_${userId}`, tier, userId, permanentCredits };
   }
 
-  // Guest: prefer FingerprintJS visitorId sent by the client, fall back to IP.
+  // Guest
   const raw = req.headers.get("x-device-id")?.trim() ?? "";
   if (FINGERPRINT_RE.test(raw)) {
-    return { key: `fp_${raw}`, tier: "guest" };
+    return { key: `fp_${raw}`, tier: "guest", userId: null, permanentCredits: 0 };
   }
 
   const ip =
@@ -92,9 +102,10 @@ export async function resolveQuotaKey(req: NextRequest): Promise<{ key: string; 
     req.headers.get("x-real-ip") ||
     "unknown";
 
-  return { key: `ip_${ip}`, tier: "guest" };
+  return { key: `ip_${ip}`, tier: "guest", userId: null, permanentCredits: 0 };
 }
 
+// ── Plan quota helpers ─────────────────────────────────────────────────────
 export function checkGenerationQuota(key: string, tier: Tier): boolean {
   return getRecord(key, tier).generationUsed < TIER_LIMITS[tier].generation;
 }
@@ -109,4 +120,33 @@ export function checkDrawingQuota(key: string, tier: Tier): boolean {
 
 export function consumeDrawingQuota(key: string, tier: Tier): void {
   getRecord(key, tier).drawingUsed += 1;
+}
+
+// ── Permanent credits (pay-as-you-go fallback) ─────────────────────────────
+/**
+ * Atomically deducts one permanent credit from Clerk publicMetadata.
+ * Returns true if a credit was successfully consumed; false if none remain.
+ *
+ * Called only when plan quota is already exhausted, so permanent credits
+ * act as a seamless top-up without changing the quota period counter.
+ */
+export async function consumePermanentCredit(userId: string): Promise<boolean> {
+  const client = await clerkClient();
+  const user = await client.users.getUser(userId);
+  const meta = (user.publicMetadata ?? {}) as Record<string, unknown>;
+  const current = Number(meta.permanentCredits ?? 0);
+
+  if (current <= 0) return false;
+
+  await client.users.updateUserMetadata(userId, {
+    publicMetadata: {
+      ...meta,
+      permanentCredits: current - 1,
+    },
+  });
+
+  console.log(
+    `[Quota] Consumed 1 permanent credit for user ${userId} (${current} → ${current - 1})`
+  );
+  return true;
 }
