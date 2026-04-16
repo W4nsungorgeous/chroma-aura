@@ -2,16 +2,24 @@ import { useState, useEffect, useMemo } from "react";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { useUser } from "@clerk/nextjs";
 
-export type UserTier = "guest" | "member" | "starter" | "pro" | "studio" | "vip";
+export type UserTier = "guest" | "member" | "vip";
 
 const TIER_LIMITS = {
-  guest: { generation: 2, drawing: 0 },
-  member: { generation: 3, drawing: 2 },
-  starter: { generation: 60, drawing: 20 },
-  pro: { generation: 200, drawing: 80 },
-  studio: { generation: 600, drawing: 200 },
-  vip: { generation: 9999, drawing: 9999 },
+  guest:  { generation: 2,    drawing: 0    }, // lifetime teaser — no reset
+  member: { generation: 3,    drawing: 2    }, // resets weekly (Monday 00:00 UTC)
+  vip:    { generation: 9999, drawing: 9999 },
 };
+
+/** Timestamp (ms) of next Monday 00:00 UTC. */
+function nextMondayMs(): number {
+  const now = new Date();
+  const day = now.getUTCDay(); // 0=Sun … 6=Sat
+  const daysUntilMonday = day === 0 ? 1 : 8 - day;
+  const monday = new Date(now);
+  monday.setUTCDate(now.getUTCDate() + daysUntilMonday);
+  monday.setUTCHours(0, 0, 0, 0);
+  return monday.getTime();
+}
 
 export function useQuota() {
   const { user, isLoaded } = useUser();
@@ -22,62 +30,83 @@ export function useQuota() {
   // 1. Determine Tier
   const tier = useMemo<UserTier>(() => {
     if (!isLoaded || !user) return "guest";
-    
     const email = user.primaryEmailAddress?.emailAddress;
     const role = user.publicMetadata?.role as string;
-    
-    // VIP Upgrade for specific email
-    if (email === "kellclosss@gmail.com" || role === "vip" || role === "admin") {
-      return "vip";
-    }
-    
-    // Paid Plans
-    if (role === "starter") return "starter";
-    if (role === "pro") return "pro";
-    if (role === "studio") return "studio";
-    
+    if (email === "kellclosss@gmail.com" || role === "vip" || role === "admin") return "vip";
     return "member";
   }, [user, isLoaded]);
 
-  // 2. Load Limits based on Tier
   const limits = TIER_LIMITS[tier];
 
+  // 2. Load initial quota from localStorage on mount
   useEffect(() => {
     const initFingerprint = async () => {
-      if (!isLoaded) return;
-      let fpId: string | null = null;
+      const fp = await FingerprintJS.load();
+      const result = await fp.get();
+      setDeviceId(result.visitorId);
       try {
-        const fpPromise = FingerprintJS.load();
-        const fp = await fpPromise;
-        const result = await fp.get();
-        fpId = result.visitorId;
-        setDeviceId(result.visitorId);
-      } catch (err) {
-        console.error("Fingerprint error", err);
-      }
-      
-      const storageKey = user ? `quota_user_${user.id}` : (fpId ? `quota_fp_${fpId}` : null);
-      if (storageKey) {
-        try {
-          const stored = localStorage.getItem(storageKey);
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            setDrawingQuotaUsed(parsed.drawing?.used || 0);
-            setGenerationQuotaUsed(parsed.generation?.used || 0);
-          } else {
-            setDrawingQuotaUsed(0);
-            setGenerationQuotaUsed(0);
-          }
-        } catch {
-          // localStorage unavailable or parse error — start from zero
-          setDrawingQuotaUsed(0);
-          setGenerationQuotaUsed(0);
+        const stored = localStorage.getItem(`quota_${result.visitorId}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setDrawingQuotaUsed(parsed.drawing?.used || 0);
+          setGenerationQuotaUsed(parsed.generation?.used || 0);
         }
+      } catch {
+        // localStorage unavailable (private browsing) or JSON corrupt — start from zero
       }
     };
-
     initFingerprint();
-  }, [user, isLoaded]); // Re-run when auth changes to switch quota cache
+  }, []);
+
+  // 3. Weekly reset for member tier — fires once deviceId and tier are both known
+  useEffect(() => {
+    if (!deviceId || !isLoaded || tier !== "member") return;
+    try {
+      const stored = localStorage.getItem(`quota_${deviceId}`);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      const resetAt: number | undefined = parsed.resetAt;
+      if (resetAt && Date.now() > resetAt) {
+        // Period has expired — wipe counts and set next weekly boundary
+        setDrawingQuotaUsed(0);
+        setGenerationQuotaUsed(0);
+        localStorage.setItem(`quota_${deviceId}`, JSON.stringify({
+          drawing: { used: 0, limit: limits.drawing },
+          generation: { used: 0, limit: limits.generation },
+          resetAt: nextMondayMs(),
+        }));
+      }
+    } catch {
+      // ignore
+    }
+  }, [deviceId, isLoaded, tier]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const saveQuota = (drawingUsed: number, generationUsed: number) => {
+    if (!deviceId) return;
+    try {
+      // Member: persist resetAt so the weekly boundary survives page reloads.
+      // Keep the existing resetAt if it's still in the future; otherwise stamp a new one.
+      let resetAt: number | undefined;
+      if (tier === "member") {
+        const stored = localStorage.getItem(`quota_${deviceId}`);
+        const existing = stored ? JSON.parse(stored) : null;
+        resetAt =
+          existing?.resetAt && existing.resetAt > Date.now()
+            ? existing.resetAt
+            : nextMondayMs();
+      }
+      localStorage.setItem(
+        `quota_${deviceId}`,
+        JSON.stringify({
+          drawing: { used: drawingUsed, limit: limits.drawing },
+          generation: { used: generationUsed, limit: limits.generation },
+          ...(resetAt !== undefined ? { resetAt } : {}),
+        })
+      );
+    } catch {
+      // localStorage unavailable or full — quota lives only in memory this session
+    }
+  };
 
   const decrementDrawing = () => {
     if (drawingQuotaUsed < limits.drawing) {
@@ -99,20 +128,6 @@ export function useQuota() {
     return false;
   };
 
-  const saveQuota = (drawingUsed: number, generationUsed: number) => {
-    const storageKey = user ? `quota_user_${user.id}` : (deviceId ? `quota_fp_${deviceId}` : null);
-    if (storageKey) {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify({
-          drawing: { used: drawingUsed, limit: limits.drawing },
-          generation: { used: generationUsed, limit: limits.generation }
-        }));
-      } catch {
-        // localStorage unavailable or full — quota state lives only in memory this session
-      }
-    }
-  };
-
   return {
     tier,
     deviceId,
@@ -120,11 +135,12 @@ export function useQuota() {
     generationQuota: {
       used: generationQuotaUsed,
       limit: limits.generation,
-      remaining: Math.max(0, limits.generation - generationQuotaUsed)
+      remaining: Math.max(0, limits.generation - generationQuotaUsed),
     },
-    expiresAt: user?.publicMetadata?.expiresAt as string || null,
+    expiresAt: (user?.publicMetadata?.expiresAt as string) || null,
     decrementDrawing,
     decrementGeneration,
-    isLimitReached: drawingQuotaUsed >= limits.drawing || generationQuotaUsed >= limits.generation
+    isLimitReached:
+      drawingQuotaUsed >= limits.drawing || generationQuotaUsed >= limits.generation,
   };
 }

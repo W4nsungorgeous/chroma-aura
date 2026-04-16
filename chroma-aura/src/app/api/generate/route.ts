@@ -19,7 +19,13 @@ export async function POST(req: NextRequest) {
     const { key, tier } = await resolveQuotaKey(req);
     if (!checkGenerationQuota(key, tier)) {
       return NextResponse.json(
-        { success: false, error: "Generation quota exceeded. Please try again tomorrow." },
+        {
+          success: false,
+          error:
+            tier === "guest"
+              ? "Free generation limit reached. Sign up for a free account to get more."
+              : "Weekly generation quota exceeded. Resets every Monday.",
+        },
         { status: 429 }
       );
     }

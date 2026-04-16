@@ -22,7 +22,13 @@ export async function POST(req: NextRequest) {
     const { key, tier } = await resolveQuotaKey(req);
     if (!checkDrawingQuota(key, tier)) {
       return NextResponse.json(
-        { success: false, error: "Drawing quota exceeded. Please try again tomorrow." },
+        {
+          success: false,
+          error:
+            tier === "guest"
+              ? "Auto-color is available to registered users. Sign up for free."
+              : "Weekly auto-color quota exceeded. Resets every Monday.",
+        },
         { status: 429 }
       );
     }
