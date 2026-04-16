@@ -2,12 +2,14 @@ import { useState, useEffect, useMemo } from "react";
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { useUser } from "@clerk/nextjs";
 
-export type UserTier = "guest" | "member" | "vip";
-
+export type UserTier = "guest" | "member" | "starter" | "pro" | "studio" | "vip";
 
 const TIER_LIMITS = {
-  guest: { generation: 3, drawing: 50 },
-  member: { generation: 20, drawing: 500 },
+  guest: { generation: 2, drawing: 0 },
+  member: { generation: 3, drawing: 2 },
+  starter: { generation: 60, drawing: 20 },
+  pro: { generation: 200, drawing: 80 },
+  studio: { generation: 600, drawing: 200 },
   vip: { generation: 9999, drawing: 9999 },
 };
 
@@ -29,6 +31,11 @@ export function useQuota() {
       return "vip";
     }
     
+    // Paid Plans
+    if (role === "starter") return "starter";
+    if (role === "pro") return "pro";
+    if (role === "studio") return "studio";
+    
     return "member";
   }, [user, isLoaded]);
 
@@ -37,26 +44,40 @@ export function useQuota() {
 
   useEffect(() => {
     const initFingerprint = async () => {
-      const fpPromise = FingerprintJS.load();
-      const fp = await fpPromise;
-      const result = await fp.get();
-      setDeviceId(result.visitorId);
-      
-      // Load initial quota from localStorage
+      if (!isLoaded) return;
+      let fpId: string | null = null;
       try {
-        const stored = localStorage.getItem(`quota_${result.visitorId}`);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          setDrawingQuotaUsed(parsed.drawing.used || 0);
-          setGenerationQuotaUsed(parsed.generation.used || 0);
+        const fpPromise = FingerprintJS.load();
+        const fp = await fpPromise;
+        const result = await fp.get();
+        fpId = result.visitorId;
+        setDeviceId(result.visitorId);
+      } catch (err) {
+        console.error("Fingerprint error", err);
+      }
+      
+      const storageKey = user ? `quota_user_${user.id}` : (fpId ? `quota_fp_${fpId}` : null);
+      if (storageKey) {
+        try {
+          const stored = localStorage.getItem(storageKey);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            setDrawingQuotaUsed(parsed.drawing?.used || 0);
+            setGenerationQuotaUsed(parsed.generation?.used || 0);
+          } else {
+            setDrawingQuotaUsed(0);
+            setGenerationQuotaUsed(0);
+          }
+        } catch {
+          // localStorage unavailable or parse error — start from zero
+          setDrawingQuotaUsed(0);
+          setGenerationQuotaUsed(0);
         }
-      } catch {
-        // localStorage unavailable (private browsing) or JSON corrupt — start from zero
       }
     };
 
     initFingerprint();
-  }, []);
+  }, [user, isLoaded]); // Re-run when auth changes to switch quota cache
 
   const decrementDrawing = () => {
     if (drawingQuotaUsed < limits.drawing) {
@@ -79,9 +100,10 @@ export function useQuota() {
   };
 
   const saveQuota = (drawingUsed: number, generationUsed: number) => {
-    if (deviceId) {
+    const storageKey = user ? `quota_user_${user.id}` : (deviceId ? `quota_fp_${deviceId}` : null);
+    if (storageKey) {
       try {
-        localStorage.setItem(`quota_${deviceId}`, JSON.stringify({
+        localStorage.setItem(storageKey, JSON.stringify({
           drawing: { used: drawingUsed, limit: limits.drawing },
           generation: { used: generationUsed, limit: limits.generation }
         }));

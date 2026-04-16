@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     const response = await aiBridge.autoColor(imageUrl);
 
     if (response.success) {
-      consumeDrawingQuota(key);
+      consumeDrawingQuota(key, tier);
     }
 
     return NextResponse.json(response);

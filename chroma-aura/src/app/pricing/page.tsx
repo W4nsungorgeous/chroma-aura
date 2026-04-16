@@ -9,30 +9,30 @@ import { cn } from "@/lib/utils";
 
 const TIERS = [
   {
-    name: "Free Guest",
-    price: "0",
-    description: "Try out Chroma Aura for free.",
+    name: "Starter",
+    price: "4.99",
+    description: "Perfect for casual creators.",
     features: [
-      "1 AI Generation / day",
-      "5 Studio Sessions / day",
+      "60 Lineart Generations / mo",
+      "20 AI Auto-Colorings / mo",
       "Standard Resolution",
       "Basic Brush Set",
-      "Community Support"
+      "No Watermark"
     ],
-    buttonText: "Current Plan",
+    buttonText: "Get Starter",
     active: false,
     icon: <Zap className="w-6 h-6 text-yellow-500" />
   },
   {
-    name: "Creative Pro",
-    price: "12",
-    description: "Perfect for casual creators.",
+    name: "Pro",
+    price: "12.99",
+    description: "The sweet spot for active artists.",
     features: [
-      "50 AI Generations / day",
-      "Unlimited Studio Sessions",
-      "HD Export (4K)",
-      "Premium Brush Set",
+      "200 Lineart Generations / mo",
+      "80 AI Auto-Colorings / mo",
+      "HD Export (2K)",
       "Priority Queue",
+      "Premium Brush Set",
       "No Watermark"
     ],
     buttonText: "Upgrade to Pro",
@@ -41,18 +41,18 @@ const TIERS = [
     icon: <Star className="w-6 h-6 text-primary" />
   },
   {
-    name: "VIP Artist",
-    price: "29",
-    description: "Ultimate creative freedom.",
+    name: "Studio",
+    price: "29.99",
+    description: "Ultimate limit for absolute freedom.",
     features: [
-      "Unlimited AI Generations",
-      "Batch Generation (50 at once)",
-      "Exclusive Art Styles",
-      "Early Access to AI Tools",
-      "Private Gallery",
+      "600 Lineart Generations / mo",
+      "200 AI Auto-Colorings / mo",
+      "Ultra HD Export (4K)",
+      "Style Weight Tuning",
+      "Private Cloud Gallery",
       "Commercial Rights"
     ],
-    buttonText: "Become VIP",
+    buttonText: "Become Studio",
     active: false,
     icon: <Diamond className="w-6 h-6 text-accent" />
   }
@@ -131,9 +131,9 @@ export default function PricingPage() {
               </ul>
 
               <button className={cn(
-                "w-full py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg",
+                "w-full py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg hover:scale-105 active:scale-95",
                 tier.highlight 
-                  ? "bg-foreground text-background hover:scale-105 active:scale-95" 
+                  ? "bg-foreground text-background" 
                   : "bg-icon-bg text-foreground hover:bg-icon-bg/80"
               )}>
                  {tier.buttonText}
@@ -141,6 +141,33 @@ export default function PricingPage() {
             </motion.div>
           ))}
         </div>
+        
+        {/* Pay-As-You-Go Section */}
+        <motion.div 
+          initial={mounted ? { opacity: 0, y: 20 } : { opacity: 1, y: 0 }}
+          animate={mounted ? { opacity: 1, y: 0 } : { opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="mt-20 max-w-4xl mx-auto glass border-border-subtle rounded-[32px] p-8 md:p-12 relative overflow-hidden"
+        >
+          <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 justify-between">
+            <div>
+              <h3 className="text-3xl font-bold font-heading mb-2 text-foreground">Pay-As-You-Go Credits</h3>
+              <p className="text-text-muted max-w-md">
+                Don't want to subscribe? Need a quick top-up? Buy credits that <strong>never expire</strong>. 1 Credit = 1 Generation or Auto-Color.
+              </p>
+            </div>
+            <div className="flex flex-col items-center bg-background/50 p-6 rounded-3xl border border-white/10 shadow-inner">
+               <div className="flex items-center gap-3 mb-4">
+                  <span className="text-2xl font-bold text-foreground">$0.04</span>
+                  <span className="text-text-muted">/</span>
+                  <span className="text-2xl font-black text-primary">1 Credit</span>
+               </div>
+               <button className="px-8 py-3 rounded-xl bg-foreground text-background font-bold hover:scale-105 transition-all shadow-md w-full active:scale-95">
+                  Buy Credits
+               </button>
+            </div>
+          </div>
+        </motion.div>
       </section>
 
       <Footer />

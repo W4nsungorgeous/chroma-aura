@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     const response = await aiBridge.generate(prompt);
 
     if (response.success) {
-      consumeGenerationQuota(key);
+      consumeGenerationQuota(key, tier);
     }
 
     return NextResponse.json(response);
