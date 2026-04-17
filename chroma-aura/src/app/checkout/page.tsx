@@ -23,7 +23,7 @@ const PADDLE_PRICE_IDS: Record<string, string> = {
   starter_monthly: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_STARTER   ?? "",
   pro_monthly:     process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_PRO       ?? "",
   studio_monthly:  process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_STUDIO    ?? "",
-  credits_50:      process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_CREDITS_50 ?? "",
+  credits_50:      process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_CREDIT_UNIT ?? "",
 };
 
 // ── Product display metadata (static plans only; credits are dynamic) ─────

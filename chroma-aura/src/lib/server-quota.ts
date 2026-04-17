@@ -12,7 +12,7 @@ const TIER_LIMITS: Record<Tier, { generation: number; drawing: number }> = {
   member:  { generation: 3,    drawing: 2    }, // resets weekly (Monday UTC)
   starter: { generation: 60,   drawing: 20   }, // monthly via Paddle subscription
   pro:     { generation: 200,  drawing: 80   },
-  studio:  { generation: 600,  drawing: 200  },
+  studio:  { generation: 500,  drawing: 200  },
   vip:     { generation: 9999, drawing: 9999 },
 };
 

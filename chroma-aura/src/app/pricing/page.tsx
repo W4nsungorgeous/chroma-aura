@@ -49,7 +49,7 @@ const TIERS = [
     price: "29.99",
     description: "Ultimate limit for absolute freedom.",
     features: [
-      "600 Lineart Generations / mo",
+      "500 Lineart Generations / mo",
       "200 AI Auto-Colorings / mo",
       "Ultra HD Export (4K)",
       "Style Weight Tuning",
@@ -167,8 +167,8 @@ export default function PricingPage() {
                 Don't want to subscribe? Buy credits that <strong>never expire</strong> and top up whenever you need. 1 Credit = 1 Generation or Auto-Color.
               </p>
               <div className="flex flex-wrap gap-3 text-sm">
-                <span className="px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">$1 = 50 credits</span>
-                <span className="px-3 py-1.5 rounded-full bg-foreground/5 text-text-muted border border-border-subtle font-medium">Min $3 · Max $100</span>
+                <span className="px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">1 credit = $0.05</span>
+                <span className="px-3 py-1.5 rounded-full bg-foreground/5 text-text-muted border border-border-subtle font-medium">Min $3 (60 credits) · Max $100</span>
                 <span className="px-3 py-1.5 rounded-full bg-foreground/5 text-text-muted border border-border-subtle font-medium">Never expire</span>
               </div>
             </div>

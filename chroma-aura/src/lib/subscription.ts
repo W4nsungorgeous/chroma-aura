@@ -49,14 +49,18 @@ export const PLANS: Record<PlanId, PlanMeta> = {
     id: "studio_monthly",
     name: "Studio",
     tier: "studio",
-    generation: 600,
+    generation: 500,
     drawing: 200,
     price: "$29.99",
   },
 };
 
-/** Credits awarded per $1 unit purchased (Paddle price = $1/unit, quantity = dollar amount). */
-export const CREDITS_PER_DOLLAR = 50;
+/**
+ * Credits awarded per $1 spent.
+ * Paddle unit price = $1, quantity = dollar amount paid.
+ * Rate: 1 credit = $0.05  →  $1 = 20 credits.
+ */
+export const CREDITS_PER_DOLLAR = 20;
 
 /** Minimum purchase amount in dollars. */
 export const CREDITS_MIN_DOLLARS = 3;

@@ -43,7 +43,7 @@ const PRICE_TO_PLAN: Record<string, PlanId> = {
   [process.env.PADDLE_PRICE_ID_STUDIO  ?? "__studio__" ]: "studio_monthly",
 };
 
-const CREDITS_PRICE_ID = process.env.PADDLE_PRICE_ID_CREDITS_50 ?? "__credits_50__";
+const CREDITS_PRICE_ID = process.env.PADDLE_PRICE_ID_CREDIT_UNIT ?? "__credit_unit__";
 
 // ── Clerk helpers ──────────────────────────────────────────────────────────
 async function getClerkMeta(clerkUserId: string) {
