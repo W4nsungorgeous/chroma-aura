@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Sparkles, ArrowRight, Palette, Layers, Zap } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/providers/ThemeProvider";
 
@@ -19,11 +19,35 @@ export default function Hero() {
   const isDark = theme === "dark";
   
   const featured = {
-    title: isDark ? "Neon Forest Mandala" : "Dreamy Cloud Castle",
+    title: isDark ? "Neon Forest Mandala" : "Prismatic Crystal Butterfly",
     imgUrl: isDark 
-      ? "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=1000"
-      : "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&q=80&w=1000",
+      ? "/images/neon_forest_mandala.png"
+      : "/images/prismatic_crystal_butterfly.png",
     overlay: isDark ? "from-slate-950/90" : "from-primary/60"
+  };
+
+  const mouseX = useMotionValue(0.5);
+  const mouseY = useMotionValue(0.5);
+
+  const springConfig = { stiffness: 300, damping: 30 };
+  const smoothX = useSpring(mouseX, springConfig);
+  const smoothY = useSpring(mouseY, springConfig);
+
+  const rotateX = useTransform(smoothY, [0, 1], ["15deg", "-15deg"]);
+  const rotateY = useTransform(smoothX, [0, 1], ["-15deg", "15deg"]);
+  const trZText = useTransform(smoothX, [0, 1], ["40px", "50px"]); // subtle push
+  const bgX = useTransform(smoothX, [0, 1], ["-5%", "5%"]);
+  const bgY = useTransform(smoothY, [0, 1], ["-5%", "5%"]);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    mouseX.set((e.clientX - rect.left) / rect.width);
+    mouseY.set((e.clientY - rect.top) / rect.height);
+  };
+
+  const handleMouseLeave = () => {
+    mouseX.set(0.5);
+    mouseY.set(0.5);
   };
 
   return (
@@ -122,28 +146,55 @@ export default function Hero() {
             transition={{ duration: 1, delay: 0.2, ease: "circOut" }}
             className="relative"
           >
-            {/* The "Wow" Visual Element */}
-            <div className="relative z-10 rounded-3xl overflow-hidden glass p-4 border-border-subtle shadow-[0_0_50px_rgba(159,122,234,0.1)] group">
-              <div className="absolute inset-0 bg-iridescent opacity-10 group-hover:opacity-20 transition-opacity" />
-              <div className="bg-section-muted rounded-2xl overflow-hidden relative aspect-[4/5] md:aspect-square group cursor-pointer">
-                  {/* This would be an AI generated lineart image in production */}
-                  <div 
-                    className="absolute inset-0 bg-cover bg-center brightness-90 group-hover:scale-110 transition-transform duration-700" 
-                    style={{ backgroundImage: `url('${featured.imgUrl}')` }}
-                  />
-                  <div className={cn("absolute inset-0 bg-gradient-to-t via-transparent to-transparent", featured.overlay)} />
-                  
-                  <div className="absolute bottom-0 left-0 right-0 p-8 transform translate-y-4 group-hover:translate-y-0 transition-transform">
-                    <p className="text-sm font-bold text-white mb-2 tracking-tighter uppercase whitespace-nowrap drop-shadow-md">Featured Creation</p>
-                    <h3 className="text-2xl font-bold mb-4 text-white drop-shadow-lg group-hover:text-white transition-colors">"{featured.title}"</h3>
-                    <div className="flex items-center gap-3">
-                       <div className="w-10 h-10 rounded-full bg-iridescent p-0.5">
-                          <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-xs font-bold text-slate-800 border border-slate-100">AI</div>
-                       </div>
-                       <p className="text-sm text-white/80 font-medium drop-shadow-sm">Generated in 1.4s • Community Rated 9.8</p>
-                    </div>
-                 </div>
-              </div>
+            {/* The "Wow" Visual Element with 3D Tilt */}
+            <div className="relative z-10 group perspective-[1200px]">
+              <motion.div 
+                onMouseMove={handleMouseMove}
+                onMouseLeave={handleMouseLeave}
+                style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
+                className="relative rounded-3xl p-1 shadow-[0_0_50px_rgba(159,122,234,0.1)] group cursor-pointer transition-shadow duration-500 hover:shadow-[0_20px_80px_rgba(159,122,234,0.3)]"
+              >
+                <div className="absolute inset-0 bg-iridescent opacity-10 group-hover:opacity-20 transition-opacity rounded-3xl" style={{ transform: "translateZ(-20px)" }} />
+                
+                <div className="bg-section-muted rounded-[22px] overflow-hidden relative aspect-[4/5] md:aspect-square" style={{ transformStyle: "preserve-3d" }}>
+                    
+                    {/* Parallax Background Image */}
+                    <motion.div 
+                      className="absolute inset-[-10%] bg-cover bg-center brightness-95" 
+                      style={{ 
+                        backgroundImage: `url('${featured.imgUrl}')`,
+                        x: bgX,
+                        y: bgY,
+                      }}
+                    />
+                    
+                    {/* 3D Popping Image Overlay (Fake Depth) */}
+                    <motion.div 
+                      className="absolute inset-[-5%] bg-contain bg-center bg-no-repeat transition-transform duration-700" 
+                      style={{ 
+                        backgroundImage: `url('${featured.imgUrl}')`,
+                        transform: "translateZ(30px) scale(1.05)",
+                      }}
+                    />
+
+                    <div className={cn("absolute inset-0 bg-gradient-to-t via-transparent to-transparent opacity-80", featured.overlay)} />
+                    
+                    {/* Floating Text matching Z-axis */}
+                    <motion.div 
+                      className="absolute bottom-0 left-0 right-0 p-8 pointer-events-none"
+                      style={{ translateZ: trZText }}
+                    >
+                      <p className="text-sm font-bold text-white mb-2 tracking-tighter uppercase whitespace-nowrap drop-shadow-[0_4px_4px_rgba(0,0,0,0.6)]">Featured Creation</p>
+                      <h3 className="text-3xl font-black mb-4 text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]">"{featured.title}"</h3>
+                      <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 rounded-full bg-iridescent p-0.5 shadow-lg">
+                            <div className="w-full h-full rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center text-xs font-black text-slate-800">AI</div>
+                         </div>
+                         <p className="text-sm text-white font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]">Generated in 1.4s • Community Rated 9.8</p>
+                      </div>
+                   </motion.div>
+                </div>
+              </motion.div>
             </div>
             
             {/* Decorative Elements */}
