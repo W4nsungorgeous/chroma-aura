@@ -103,13 +103,21 @@ function CreditAmountSelector({
       </div>
 
       {/* ── Slider ── */}
-      <div className="relative px-1">
-        <div className="relative h-2 rounded-full bg-foreground/10">
+      <div className="relative py-3 px-1">
+        {/* Track background */}
+        <div className="relative h-2 rounded-full bg-foreground/10 pointer-events-none">
+          {/* Fill — no transition so it tracks instantly */}
           <div
-            className="absolute left-0 top-0 h-full rounded-full bg-primary transition-all"
+            className="absolute left-0 top-0 h-full rounded-full bg-primary"
             style={{ width: `${pct}%` }}
           />
         </div>
+        {/* Thumb — offset compensates for thumb radius at both extremes */}
+        <div
+          className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-primary shadow-lg shadow-primary/30 border-2 border-background pointer-events-none"
+          style={{ left: `calc(${pct}% + ${8 - pct * 0.16}px)` }}
+        />
+        {/* Native range — sits on top, fully transparent so custom visuals show */}
         <input
           type="range"
           min={CREDITS_MIN_DOLLARS}
@@ -117,12 +125,7 @@ function CreditAmountSelector({
           step={CREDITS_STEP}
           value={amount}
           onChange={(e) => onChange(Number(e.target.value))}
-          className="absolute inset-0 w-full opacity-0 cursor-pointer h-2"
-        />
-        {/* Thumb indicator */}
-        <div
-          className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-primary shadow-lg shadow-primary/30 border-2 border-background pointer-events-none transition-all"
-          style={{ left: `calc(${pct}% - 8px)` }}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         />
       </div>
       <div className="flex justify-between text-xs text-text-muted px-1">
