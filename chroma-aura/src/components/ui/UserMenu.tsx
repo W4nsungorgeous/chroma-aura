@@ -89,44 +89,60 @@ export default function UserMenu() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4 text-slate-400" />
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Current Plan</span>
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Current Plan</span>
                 </div>
-                <div className={cn("flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight shadow-sm", planInfo.bg, planInfo.color)}>
+                <div className={cn("flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight shadow-sm whitespace-nowrap", planInfo.bg, planInfo.color)}>
                   {planInfo.icon}
                   {planInfo.label}
                 </div>
               </div>
 
-              {/* Credits */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="w-4 h-4 text-slate-400" />
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Credits</span>
-                  </div>
-                  <span className="text-xs font-bold text-slate-700">
-                    {generationQuota.remaining} / {generationQuota.limit}
-                  </span>
-                </div>
-                {/* Credit Bar */}
-                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(generationQuota.remaining / generationQuota.limit) * 100}%` }}
-                    className="h-full bg-iridescent rounded-full shadow-[0_0_10px_rgba(139,92,246,0.3)]"
-                  />
-                </div>
-              </div>
-
               {/* Expiration */}
-              <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center justify-between pt-1 pb-2 border-b border-border-subtle/50">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-slate-400" />
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Expires</span>
+                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Expires</span>
                 </div>
-                <span className="text-xs font-bold text-slate-600">
+                <span className="text-xs font-bold text-slate-600 whitespace-nowrap">
                   {expiresAt ? new Date(expiresAt).toLocaleDateString() : (tier === "guest" ? "1 Day" : "Permanent")}
                 </span>
+              </div>
+
+              {/* Plan Credits & Permanent Credits Wrapper */}
+              <div className="space-y-4 pt-1">
+                {/* Limited-time Plan Credits */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Plan Credits</span>
+                    </div>
+                    <span className="text-xs font-bold text-slate-700 whitespace-nowrap">
+                      {generationQuota.remaining} / {generationQuota.limit}
+                    </span>
+                  </div>
+                  {/* Credit Bar */}
+                  <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.max(0, Math.min(100, (generationQuota.remaining / generationQuota.limit) * 100))}%` }}
+                      className="h-full bg-iridescent rounded-full shadow-[0_0_10px_rgba(139,92,246,0.3)]"
+                    />
+                  </div>
+                </div>
+
+                {/* Permanent Credits (Pay-As-You-Go) */}
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-accent shrink-0" />
+                      <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Permanent Credits</span>
+                    </div>
+                    <span className="text-xs font-black text-accent bg-accent/10 px-2 py-0.5 rounded-md whitespace-nowrap">
+                      {user.publicMetadata?.credits ? Number(user.publicMetadata.credits) : 0}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
 
