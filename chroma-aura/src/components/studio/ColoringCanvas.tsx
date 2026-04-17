@@ -43,6 +43,8 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  /** Tracks whether the canvas has been initialized at least once (used to skip snapshot on first mount). */
+  const isInitializedRef = useRef(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [history, setHistory] = useState<ImageData[]>([]);
   const [redoStack, setRedoStack] = useState<ImageData[]>([]);
@@ -178,31 +180,53 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
     }
   }), [history, redoStack, imageUrl, saveState]);
 
-  // Effect 1: Initialize canvas dimensions and context — runs only when artboard size changes.
-  // Does NOT depend on imageUrl to avoid clearing the canvas on every new generation.
+  // Effect 1: Resize canvas — runs when artboard dimensions change.
+  // Snapshots current artwork before canvas.width/height resets all pixels,
+  // then restores it scaled to the new size so the user never loses their work.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // On first mount skip the snapshot — canvas is still at browser default (300×150, blank).
+    const prevDataUrl = isInitializedRef.current ? canvas.toDataURL() : null;
+
     const dpr = window.devicePixelRatio || 1;
+    // Setting canvas.width / canvas.height clears all pixels and resets context state.
     canvas.width = artboardWidth * dpr;
     canvas.height = artboardHeight * dpr;
 
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (ctx) {
-      ctx.scale(dpr, dpr);
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      contextRef.current = ctx;
+    if (!ctx) return;
 
-      ctx.fillStyle = "white";
-      ctx.fillRect(0, 0, artboardWidth, artboardHeight);
+    ctx.scale(dpr, dpr);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    contextRef.current = ctx;
+
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, artboardWidth, artboardHeight);
+
+    if (prevDataUrl) {
+      // Old ImageData entries are dimension-specific and unsafe after a resize —
+      // clear history first, then restore the snapshot scaled to the new artboard.
+      setHistory([]);
+      setRedoStack([]);
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, artboardWidth, artboardHeight);
+        saveState();
+      };
+      img.src = prevDataUrl;
+    } else {
       saveState();
     }
+
+    isInitializedRef.current = true;
   }, [artboardWidth, artboardHeight, saveState]);
 
-  // Effect 2: Draw imageUrl onto the canvas whenever the URL or artboard dimensions change.
-  // Separated from Effect 1 so a new image never causes a redundant canvas dimension reset.
+  // Effect 2: Draw imageUrl onto the canvas whenever the URL changes.
+  // Intentionally does NOT re-run on dimension changes — Effect 1's snapshot/restore
+  // already preserves all canvas content (including imageUrl) when the ratio is changed.
   // Tries with crossOrigin first (needed for flood-fill getImageData); silently falls back
   // to a non-CORS load for display if the CDN rejects the preflight.
   useEffect(() => {
@@ -230,7 +254,8 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
       img.src = imageUrl;
     };
     load(true);
-  }, [imageUrl, artboardWidth, artboardHeight, saveState]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageUrl, saveState]); // artboardWidth/Height intentionally omitted — see comment above
 
   // Update context when tool/color/brushSize changes
   useEffect(() => {
