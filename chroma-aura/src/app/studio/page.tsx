@@ -62,9 +62,7 @@ function StudioMain() {
     tier,
     deviceId,
     generationQuota,
-    drawingQuota,
-    decrementGeneration,
-    decrementDrawing,
+    decrementOps,
   } = useQuota();
 
   const searchParams = useSearchParams();
@@ -284,10 +282,6 @@ function StudioMain() {
 
   const handleAutoColor = async () => {
     if (!lineartUrl || isAutoColoring) return;
-    if (drawingQuota.used >= drawingQuota.limit) {
-      setAutoColorError("Drawing quota reached. Please try again tomorrow.");
-      return;
-    }
     setIsAutoColoring(true);
     setAutoColorError(null);
     try {
@@ -300,7 +294,7 @@ function StudioMain() {
       });
       const data = await response.json();
       if (data.success) {
-        decrementDrawing();
+        decrementOps();
         setGeneratedImage(data.imageUrl); // display the colored result on canvas
         // lineartUrl intentionally unchanged — original lineart stays as the auto-color source
       } else {
@@ -330,7 +324,7 @@ function StudioMain() {
         setGeneratedImage(data.imageUrl);
         setLineartUrl(data.imageUrl);
         setPrompt("");
-        decrementGeneration();
+        decrementOps();
       } else {
         setGenerateError(data.error || "Generation failed. Please try again.");
       }
@@ -694,7 +688,7 @@ function StudioMain() {
                   brushSize={brushSize}
                   width={canvasSize.width}
                   height={canvasSize.height}
-                  onAction={decrementDrawing}
+                  onAction={decrementOps}
                   cssZoom={isFullscreen ? zoom : 1}
                 />
               </div>

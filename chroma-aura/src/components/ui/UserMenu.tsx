@@ -38,11 +38,15 @@ export default function UserMenu() {
 
   if (!mounted || !isLoaded || !user) return null;
 
-  const planInfo = {
-    guest: { label: "Free Guest", icon: <Zap className="w-4 h-4 text-yellow-500" />, color: "text-yellow-500", bg: "bg-yellow-500/10" },
-    member: { label: "Creative Pro", icon: <Star className="w-4 h-4 text-primary" />, color: "text-primary", bg: "bg-primary/10" },
-    vip: { label: "VIP Artist", icon: <Diamond className="w-4 h-4 text-accent" />, color: "text-accent", bg: "bg-accent/10" },
-  }[tier] || { label: tier, icon: <Sparkles className="w-4 h-4" />, color: "text-primary", bg: "bg-primary/10" };
+  const planInfo = ({
+    guest:   { label: "Free Guest",   icon: <Zap     className="w-4 h-4 text-yellow-500" />, color: "text-yellow-500", bg: "bg-yellow-500/10" },
+    member:  { label: "Member",       icon: <Star    className="w-4 h-4 text-primary"    />, color: "text-primary",    bg: "bg-primary/10"    },
+    starter: { label: "Starter",      icon: <Zap     className="w-4 h-4 text-yellow-500" />, color: "text-yellow-500", bg: "bg-yellow-500/10" },
+    pro:     { label: "Pro",          icon: <Star    className="w-4 h-4 text-primary"    />, color: "text-primary",    bg: "bg-primary/10"    },
+    studio:  { label: "Studio",       icon: <Diamond className="w-4 h-4 text-accent"     />, color: "text-accent",     bg: "bg-accent/10"     },
+    vip:     { label: "VIP Artist",   icon: <Diamond className="w-4 h-4 text-accent"     />, color: "text-accent",     bg: "bg-accent/10"     },
+  } as Record<string, { label: string; icon: React.ReactNode; color: string; bg: string }>)[tier]
+    ?? { label: tier, icon: <Sparkles className="w-4 h-4" />, color: "text-primary", bg: "bg-primary/10" };
 
   return (
     <div className="relative" ref={menuRef}>
