@@ -139,7 +139,7 @@ export default function UserMenu() {
                       <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Permanent Credits</span>
                     </div>
                     <span className="text-xs font-black text-accent bg-accent/10 px-2 py-0.5 rounded-md whitespace-nowrap">
-                      {user.publicMetadata?.credits ? Number(user.publicMetadata.credits) : 0}
+                      {user.publicMetadata?.permanentCredits ? Number(user.publicMetadata.permanentCredits) : 0}
                     </span>
                   </div>
                 </div>
