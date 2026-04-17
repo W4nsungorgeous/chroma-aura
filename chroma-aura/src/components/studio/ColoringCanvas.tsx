@@ -45,6 +45,13 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
   const containerRef = useRef<HTMLDivElement>(null);
   /** Tracks whether the canvas has been initialized at least once (used to skip snapshot on first mount). */
   const isInitializedRef = useRef(false);
+  /**
+   * Stores the most recent user-created canvas content as a data URL, together with the
+   * artboard dimensions at the time it was captured.  Updated only by user actions
+   * (drawing, fill, load, clear) — never by resize — so that ratio switches always scale
+   * from the original artwork rather than a previously-padded copy.
+   */
+  const sourceContentRef = useRef<{ dataUrl: string; srcW: number; srcH: number } | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [history, setHistory] = useState<ImageData[]>([]);
   const [redoStack, setRedoStack] = useState<ImageData[]>([]);
@@ -87,7 +94,9 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
     const currentState = ctx.getImageData(0, 0, canvas.width, canvas.height);
     setHistory(prev => [...prev.slice(-29), currentState]);
     setRedoStack([]);
-  }, []);
+    // Record the artwork + its artboard size so ratio changes always scale from the original.
+    sourceContentRef.current = { dataUrl: canvas.toDataURL(), srcW: artboardWidth, srcH: artboardHeight };
+  }, [artboardWidth, artboardHeight]);
 
   useImperativeHandle(ref, () => ({
     undo: () => {
@@ -98,10 +107,11 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
 
       const current = history[history.length - 1];
       const previous = history[history.length - 2];
-      
+
       setRedoStack(prev => [...prev, current]);
       setHistory(prev => prev.slice(0, -1));
       ctx.putImageData(previous, 0, 0);
+      sourceContentRef.current = { dataUrl: canvas.toDataURL(), srcW: artboardWidth, srcH: artboardHeight };
     },
     redo: () => {
       if (redoStack.length === 0) return;
@@ -113,6 +123,7 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
       setHistory(prev => [...prev, next]);
       setRedoStack(prev => prev.slice(0, -1));
       ctx.putImageData(next, 0, 0);
+      sourceContentRef.current = { dataUrl: canvas.toDataURL(), srcW: artboardWidth, srcH: artboardHeight };
     },
     clear: () => {
       const canvas = canvasRef.current;
@@ -181,17 +192,17 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
   }), [history, redoStack, imageUrl, saveState]);
 
   // Effect 1: Resize canvas — runs when artboard dimensions change.
-  // Snapshots current artwork before canvas.width/height resets all pixels,
-  // then restores it scaled to the new size so the user never loses their work.
+  // Reads sourceContentRef (set by user actions, never by resize) so every ratio switch
+  // scales from the original artwork rather than a previously-padded copy, preventing
+  // the progressive-shrink problem that occurs when re-snapshotting the already-padded canvas.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // On first mount skip the snapshot — canvas is still at browser default (300×150, blank).
-    const prevDataUrl = isInitializedRef.current ? canvas.toDataURL() : null;
+    // Grab the original source BEFORE resizing (canvas.width= clears all pixels).
+    const source = isInitializedRef.current ? sourceContentRef.current : null;
 
     const dpr = window.devicePixelRatio || 1;
-    // Setting canvas.width / canvas.height clears all pixels and resets context state.
     canvas.width = artboardWidth * dpr;
     canvas.height = artboardHeight * dpr;
 
@@ -206,32 +217,32 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
     ctx.fillStyle = "white";
     ctx.fillRect(0, 0, artboardWidth, artboardHeight);
 
-    if (prevDataUrl) {
-      // Old ImageData entries are dimension-specific and unsafe after a resize —
-      // clear history first, then restore the snapshot scaled to the new artboard.
+    if (source) {
+      // Old ImageData entries carry the old dimensions and are unusable after resize.
       setHistory([]);
       setRedoStack([]);
       const img = new Image();
       img.onload = () => {
-        // img.naturalWidth/Height = oldArtboardW/H × dpr (device pixels).
-        // Divide by dpr to get artboard-space dimensions (after ctx.scale(dpr, dpr)).
-        const oldArtW = img.naturalWidth / dpr;
-        const oldArtH = img.naturalHeight / dpr;
-        const s = Math.min(artboardWidth / oldArtW, artboardHeight / oldArtH);
+        // Scale from the original artboard size (source.srcW/H) to the new one.
+        // Using srcW/H (logical artboard units) avoids any DPR confusion.
+        const s = Math.min(artboardWidth / source.srcW, artboardHeight / source.srcH);
         ctx.fillStyle = "white";
         ctx.fillRect(0, 0, artboardWidth, artboardHeight);
         ctx.drawImage(
           img,
-          (artboardWidth - oldArtW * s) / 2,
-          (artboardHeight - oldArtH * s) / 2,
-          oldArtW * s,
-          oldArtH * s,
+          (artboardWidth - source.srcW * s) / 2,
+          (artboardHeight - source.srcH * s) / 2,
+          source.srcW * s,
+          source.srcH * s,
         );
-        saveState();
+        // Save directly to history without touching sourceContentRef —
+        // sourceContentRef must stay pointing at the original artwork.
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        setHistory([imageData]);
       };
-      img.src = prevDataUrl;
+      img.src = source.dataUrl;
     } else {
-      saveState();
+      saveState(); // First init: blank canvas — saveState sets sourceContentRef too.
     }
 
     isInitializedRef.current = true;
