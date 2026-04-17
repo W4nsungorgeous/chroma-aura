@@ -213,7 +213,20 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
       setRedoStack([]);
       const img = new Image();
       img.onload = () => {
-        ctx.drawImage(img, 0, 0, artboardWidth, artboardHeight);
+        // img.naturalWidth/Height = oldArtboardW/H × dpr (device pixels).
+        // Divide by dpr to get artboard-space dimensions (after ctx.scale(dpr, dpr)).
+        const oldArtW = img.naturalWidth / dpr;
+        const oldArtH = img.naturalHeight / dpr;
+        const s = Math.min(artboardWidth / oldArtW, artboardHeight / oldArtH);
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, artboardWidth, artboardHeight);
+        ctx.drawImage(
+          img,
+          (artboardWidth - oldArtW * s) / 2,
+          (artboardHeight - oldArtH * s) / 2,
+          oldArtW * s,
+          oldArtH * s,
+        );
         saveState();
       };
       img.src = prevDataUrl;
