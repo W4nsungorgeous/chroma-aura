@@ -33,15 +33,15 @@ const PLAN_PRODUCT_MAP: Record<
 > = {
   starter_monthly: {
     name: "Starter Plan", price: "$4.99", type: "subscription",
-    features: ["60 Lineart Generations / mo", "20 AI Auto-Colorings / mo", "Standard Resolution"],
+    features: ["80 AI Operations / mo", "Lineart Generation & Auto-Color", "Standard Resolution"],
   },
   pro_monthly: {
     name: "Pro Plan", price: "$12.99", type: "subscription",
-    features: ["200 Lineart Generations / mo", "80 AI Auto-Colorings / mo", "HD Export (2K)", "Priority Queue"],
+    features: ["280 AI Operations / mo", "Lineart Generation & Auto-Color", "HD Export (2K)", "Priority Queue"],
   },
   studio_monthly: {
     name: "Studio Plan", price: "$29.99", type: "subscription",
-    features: ["500 Lineart Generations / mo", "200 AI Auto-Colorings / mo", "Ultra HD Export (4K)", "Commercial Rights"],
+    features: ["700 AI Operations / mo", "Lineart Generation & Auto-Color", "Ultra HD Export (4K)", "Commercial Rights"],
   },
 };
 
@@ -313,7 +313,7 @@ function CheckoutContent() {
   }
 
   return (
-    <div className="container mx-auto px-6 py-12 max-w-5xl pt-32">
+    <div className="container mx-auto px-6 max-w-5xl pt-60 pb-40 md:pt-[17rem] md:pb-44">
       <button
         onClick={() => router.back()}
         className="flex items-center gap-2 text-text-muted hover:text-foreground mb-8 transition-colors"
@@ -482,18 +482,25 @@ function CheckoutContent() {
   );
 }
 
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
+
 export default function CheckoutPage() {
   return (
-    <main className="min-h-screen bg-background">
-      <Suspense
-        fallback={
-          <div className="flex h-screen items-center justify-center">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
-        }
-      >
-        <CheckoutContent />
-      </Suspense>
+    <main className="min-h-screen bg-background flex flex-col">
+      <Navbar />
+      <div className="flex-1 flex flex-col items-center justify-center w-full">
+        <Suspense
+          fallback={
+            <div className="flex h-full w-full items-center justify-center py-20">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          }
+        >
+          <CheckoutContent />
+        </Suspense>
+      </div>
+      <Footer />
     </main>
   );
 }

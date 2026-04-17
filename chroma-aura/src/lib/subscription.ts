@@ -16,15 +16,13 @@
  */
 
 export type PlanId = "starter_monthly" | "pro_monthly" | "studio_monthly";
-export type ProductId = PlanId | "credits_50";
 
 export interface PlanMeta {
   id: PlanId;
   name: string;
   tier: "starter" | "pro" | "studio";
-  /** Monthly allocation */
-  generation: number;
-  drawing: number;
+  /** Monthly unified op allocation (lineart + auto-color share this pool). */
+  ops: number;
   price: string;
 }
 
@@ -33,24 +31,21 @@ export const PLANS: Record<PlanId, PlanMeta> = {
     id: "starter_monthly",
     name: "Starter",
     tier: "starter",
-    generation: 60,
-    drawing: 20,
+    ops: 80,
     price: "$4.99",
   },
   pro_monthly: {
     id: "pro_monthly",
     name: "Pro",
     tier: "pro",
-    generation: 200,
-    drawing: 80,
+    ops: 280,
     price: "$12.99",
   },
   studio_monthly: {
     id: "studio_monthly",
     name: "Studio",
     tier: "studio",
-    generation: 500,
-    drawing: 200,
+    ops: 700,
     price: "$29.99",
   },
 };

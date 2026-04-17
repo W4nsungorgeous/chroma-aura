@@ -3,8 +3,8 @@ import { aiBridge } from "@/lib/ai/bridge";
 import { filterPrompt } from "@/lib/content-filter";
 import {
   resolveQuotaKey,
-  checkGenerationQuota,
-  consumeGenerationQuota,
+  checkQuota,
+  consumeQuota,
   consumePermanentCredit,
 } from "@/lib/server-quota";
 
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
     const { key, tier, userId, permanentCredits } = await resolveQuotaKey(req);
 
-    const planHasQuota = checkGenerationQuota(key, tier);
+    const planHasQuota = checkQuota(key, tier);
     const canUseCredit = !planHasQuota && permanentCredits > 0 && userId !== null;
 
     if (!planHasQuota && !canUseCredit) {
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
           error:
             tier === "guest"
               ? "Free generation limit reached. Sign up for a free account to get more."
-              : "Weekly generation quota exceeded. Resets every Monday.",
+              : "Weekly quota exceeded. Resets every Monday.",
         },
         { status: 429 }
       );
@@ -43,9 +43,8 @@ export async function POST(req: NextRequest) {
 
     if (response.success) {
       if (planHasQuota) {
-        consumeGenerationQuota(key, tier);
+        consumeQuota(key, tier);
       } else {
-        // Deduct one permanent credit as fallback
         await consumePermanentCredit(userId!);
       }
     }

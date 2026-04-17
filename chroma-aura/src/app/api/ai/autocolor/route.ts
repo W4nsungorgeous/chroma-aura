@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { aiBridge } from "@/lib/ai/bridge";
 import {
   resolveQuotaKey,
-  checkDrawingQuota,
-  consumeDrawingQuota,
+  checkQuota,
+  consumeQuota,
   consumePermanentCredit,
 } from "@/lib/server-quota";
 
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 
     const { key, tier, userId, permanentCredits } = await resolveQuotaKey(req);
 
-    const planHasQuota = checkDrawingQuota(key, tier);
+    const planHasQuota = checkQuota(key, tier);
     const canUseCredit = !planHasQuota && permanentCredits > 0 && userId !== null;
 
     if (!planHasQuota && !canUseCredit) {
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
           error:
             tier === "guest"
               ? "Auto-color is available to registered users. Sign up for free."
-              : "Weekly auto-color quota exceeded. Resets every Monday.",
+              : "Weekly quota exceeded. Resets every Monday.",
         },
         { status: 429 }
       );
@@ -48,9 +48,8 @@ export async function POST(req: NextRequest) {
 
     if (response.success) {
       if (planHasQuota) {
-        consumeDrawingQuota(key, tier);
+        consumeQuota(key, tier);
       } else {
-        // Deduct one permanent credit as fallback
         await consumePermanentCredit(userId!);
       }
     }

@@ -15,8 +15,8 @@ const TIERS = [
     price: "4.99",
     description: "Perfect for casual creators.",
     features: [
-      "60 Lineart Generations / mo",
-      "20 AI Auto-Colorings / mo",
+      "80 AI Operations / mo",
+      "Lineart Generation & Auto-Color",
       "Standard Resolution",
       "Basic Brush Set",
       "No Watermark"
@@ -31,8 +31,8 @@ const TIERS = [
     price: "12.99",
     description: "The sweet spot for active artists.",
     features: [
-      "200 Lineart Generations / mo",
-      "80 AI Auto-Colorings / mo",
+      "280 AI Operations / mo",
+      "Lineart Generation & Auto-Color",
       "HD Export (2K)",
       "Priority Queue",
       "Premium Brush Set",
@@ -49,8 +49,8 @@ const TIERS = [
     price: "29.99",
     description: "Ultimate limit for absolute freedom.",
     features: [
-      "500 Lineart Generations / mo",
-      "200 AI Auto-Colorings / mo",
+      "700 AI Operations / mo",
+      "Lineart Generation & Auto-Color",
       "Ultra HD Export (4K)",
       "Style Weight Tuning",
       "Private Cloud Gallery",

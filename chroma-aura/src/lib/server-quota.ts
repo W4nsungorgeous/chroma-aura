@@ -7,18 +7,18 @@ const VIP_EMAILS = new Set(["kellclosss@gmail.com"]);
 
 export type Tier = "guest" | "member" | "starter" | "pro" | "studio" | "vip";
 
-const TIER_LIMITS: Record<Tier, { generation: number; drawing: number }> = {
-  guest:   { generation: 2,    drawing: 0    }, // lifetime teaser — no reset
-  member:  { generation: 3,    drawing: 2    }, // resets weekly (Monday UTC)
-  starter: { generation: 60,   drawing: 20   }, // monthly via Paddle subscription
-  pro:     { generation: 200,  drawing: 80   },
-  studio:  { generation: 500,  drawing: 200  },
-  vip:     { generation: 9999, drawing: 9999 },
+/** Unified per-period op limit (lineart generation + AI auto-color share the same pool). */
+const TIER_LIMITS: Record<Tier, number> = {
+  guest:   2,     // lifetime teaser — no reset
+  member:  5,     // resets weekly (Monday UTC)
+  starter: 80,    // monthly via Paddle subscription
+  pro:     280,
+  studio:  700,
+  vip:     9999,
 };
 
 interface QuotaRecord {
-  generationUsed: number;
-  drawingUsed: number;
+  opsUsed: number;
   periodStart: string; // "YYYY-MM-DD" | "permanent"
 }
 
@@ -49,7 +49,7 @@ function getRecord(key: string, tier: Tier): QuotaRecord {
   const periodStart = getPeriodStart(tier);
   const rec = store.get(key);
   if (!rec || rec.periodStart !== periodStart) {
-    const fresh: QuotaRecord = { generationUsed: 0, drawingUsed: 0, periodStart };
+    const fresh: QuotaRecord = { opsUsed: 0, periodStart };
     store.set(key, fresh);
     return fresh;
   }
@@ -84,7 +84,6 @@ export async function resolveQuotaKey(req: NextRequest): Promise<{
     } else if (
       metaTier === "starter" || metaTier === "pro" || metaTier === "studio"
     ) {
-      // Honour the tier written by the Paddle webhook
       tier = metaTier;
     }
 
@@ -105,21 +104,14 @@ export async function resolveQuotaKey(req: NextRequest): Promise<{
   return { key: `ip_${ip}`, tier: "guest", userId: null, permanentCredits: 0 };
 }
 
-// ── Plan quota helpers ─────────────────────────────────────────────────────
-export function checkGenerationQuota(key: string, tier: Tier): boolean {
-  return getRecord(key, tier).generationUsed < TIER_LIMITS[tier].generation;
+// ── Unified quota helpers ──────────────────────────────────────────────────
+
+export function checkQuota(key: string, tier: Tier): boolean {
+  return getRecord(key, tier).opsUsed < TIER_LIMITS[tier];
 }
 
-export function consumeGenerationQuota(key: string, tier: Tier): void {
-  getRecord(key, tier).generationUsed += 1;
-}
-
-export function checkDrawingQuota(key: string, tier: Tier): boolean {
-  return getRecord(key, tier).drawingUsed < TIER_LIMITS[tier].drawing;
-}
-
-export function consumeDrawingQuota(key: string, tier: Tier): void {
-  getRecord(key, tier).drawingUsed += 1;
+export function consumeQuota(key: string, tier: Tier): void {
+  getRecord(key, tier).opsUsed += 1;
 }
 
 // ── Permanent credits (pay-as-you-go fallback) ─────────────────────────────
