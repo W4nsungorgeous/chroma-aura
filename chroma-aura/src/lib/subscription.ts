@@ -55,8 +55,20 @@ export const PLANS: Record<PlanId, PlanMeta> = {
   },
 };
 
-/** Credits awarded per credits_50 purchase. */
-export const CREDITS_PER_PACK = 50;
+/** Credits awarded per $1 unit purchased (Paddle price = $1/unit, quantity = dollar amount). */
+export const CREDITS_PER_DOLLAR = 50;
+
+/** Minimum purchase amount in dollars. */
+export const CREDITS_MIN_DOLLARS = 3;
+
+/** Maximum purchase amount in dollars. */
+export const CREDITS_MAX_DOLLARS = 100;
+
+/** Step size for slider / input (dollars). */
+export const CREDITS_STEP = 1;
+
+/** Quick-select preset amounts shown as buttons (dollars). */
+export const CREDITS_PRESETS = [10, 20, 50, 100];
 
 export interface UserSubscription {
   /** Currently active plan, or null if on free tier. */

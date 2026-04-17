@@ -33,7 +33,7 @@ import type {
 } from "@paddle/paddle-node-sdk";
 import { clerkClient } from "@clerk/nextjs/server";
 import { getPaddleInstance } from "@/lib/paddle";
-import { PLANS, CREDITS_PER_PACK } from "@/lib/subscription";
+import { PLANS, CREDITS_PER_DOLLAR } from "@/lib/subscription";
 import type { PlanId } from "@/lib/subscription";
 
 // ── Paddle Price ID → internal PlanId ─────────────────────────────────────
@@ -220,12 +220,16 @@ async function handleTransactionCompleted(event: TransactionCompletedEvent) {
     return;
   }
 
+  // quantity = dollar amount the user paid (e.g. 10 → $10 → 500 credits)
+  const quantity = event.data.items?.[0]?.quantity ?? 1;
+  const creditsToAdd = quantity * CREDITS_PER_DOLLAR;
+
   const meta = await getClerkMeta(clerkUserId);
   const current = Number(meta.permanentCredits ?? 0);
-  const updated = current + CREDITS_PER_PACK;
+  const updated = current + creditsToAdd;
 
   console.log(
-    `[Paddle] Adding ${CREDITS_PER_PACK} permanent credits for user ${clerkUserId} (${current} → ${updated})`
+    `[Paddle] Adding ${creditsToAdd} permanent credits for user ${clerkUserId} ($${quantity} × ${CREDITS_PER_DOLLAR} = ${creditsToAdd}; ${current} → ${updated})`
   );
   await updateClerkMeta(clerkUserId, { permanentCredits: updated });
 }
