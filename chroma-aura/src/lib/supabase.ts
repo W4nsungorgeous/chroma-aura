@@ -1,15 +1,19 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-url.supabase.co";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key";
+const url  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+/** Client-side / edge-safe Supabase client (uses anon key, respects RLS). */
+export const supabase = createClient(url, anon);
 
 /**
- * Chroma Aura DB Schema (PostgreSQL)
- * 
- * users (id, email, tier, credits)
- * projects (id, user_id, device_id, title, canvas_state, created_at)
- * prompts (id, project_id, content, status, result_url)
- * quotas (id, device_id, user_id, drawing_used, generation_used, last_reset)
+ * Server-side Supabase client (uses service_role key, bypasses RLS).
+ * Only call from API routes / server actions — never expose to the browser.
  */
+export function getServiceSupabase() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
+  return createClient(url, serviceKey, {
+    auth: { persistSession: false },
+  });
+}

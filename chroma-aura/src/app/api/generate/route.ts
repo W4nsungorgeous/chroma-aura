@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
     const { key, tier, userId, permanentCredits } = await resolveQuotaKey(req);
 
-    const planHasQuota = checkQuota(key, tier);
+    const planHasQuota = await checkQuota(key, tier);
     const canUseCredit = !planHasQuota && permanentCredits > 0 && userId !== null;
 
     if (!planHasQuota && !canUseCredit) {
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     if (response.success) {
       if (planHasQuota) {
-        consumeQuota(key, tier);
+        await consumeQuota(key, tier);
       } else {
         await consumePermanentCredit(userId!);
       }

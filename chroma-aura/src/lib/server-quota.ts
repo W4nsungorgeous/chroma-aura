@@ -1,5 +1,6 @@
 import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
 import { NextRequest } from "next/server";
+import { getServiceSupabase } from "@/lib/supabase";
 
 // VIP access: granted to emails listed here OR to any Clerk user whose
 // publicMetadata.tier === "vip".  Add the owner account unconditionally.
@@ -17,15 +18,6 @@ const TIER_LIMITS: Record<Tier, number> = {
   vip:     9999,
 };
 
-interface QuotaRecord {
-  opsUsed: number;
-  periodStart: string; // "YYYY-MM-DD" | "permanent"
-}
-
-// In-memory store: resets on server restart.
-// TODO: replace with Supabase `quotas` table for production persistence.
-const store = new Map<string, QuotaRecord>();
-
 function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -40,20 +32,9 @@ function weekStart(): string {
 }
 
 function getPeriodStart(tier: Tier): string {
-  if (tier === "guest")   return "permanent"; // no reset for guest teaser
-  if (tier === "member")  return weekStart();
-  return today(); // paid plans: daily in-memory (DB will own this long-term)
-}
-
-function getRecord(key: string, tier: Tier): QuotaRecord {
-  const periodStart = getPeriodStart(tier);
-  const rec = store.get(key);
-  if (!rec || rec.periodStart !== periodStart) {
-    const fresh: QuotaRecord = { opsUsed: 0, periodStart };
-    store.set(key, fresh);
-    return fresh;
-  }
-  return rec;
+  if (tier === "guest")  return "permanent";
+  if (tier === "member") return weekStart();
+  return today(); // paid plans reset daily in DB (monthly billing handled by Paddle)
 }
 
 // ── FingerprintJS visitorId format ─────────────────────────────────────────
@@ -63,9 +44,7 @@ const FINGERPRINT_RE = /^[a-zA-Z0-9_-]{16,64}$/;
 export async function resolveQuotaKey(req: NextRequest): Promise<{
   key: string;
   tier: Tier;
-  /** Clerk userId — null for guests */
   userId: string | null;
-  /** Permanent pay-as-you-go credits in Clerk metadata (0 for guests) */
   permanentCredits: number;
 }> {
   const { userId } = await auth();
@@ -73,17 +52,15 @@ export async function resolveQuotaKey(req: NextRequest): Promise<{
   if (userId) {
     const user = await currentUser();
     const email = user?.emailAddresses?.[0]?.emailAddress ?? "";
-    const meta = (user?.publicMetadata ?? {}) as Record<string, unknown>;
+    const meta  = (user?.publicMetadata ?? {}) as Record<string, unknown>;
     const metaTier = meta.tier as Tier | undefined;
-    const role = meta.role as string | undefined;
+    const role     = meta.role as string | undefined;
     const permanentCredits = Number(meta.permanentCredits ?? 0);
 
     let tier: Tier = "member";
     if (VIP_EMAILS.has(email) || metaTier === "vip" || role === "vip" || role === "admin") {
       tier = "vip";
-    } else if (
-      metaTier === "starter" || metaTier === "pro" || metaTier === "studio"
-    ) {
+    } else if (metaTier === "starter" || metaTier === "pro" || metaTier === "studio") {
       tier = metaTier;
     }
 
@@ -104,41 +81,72 @@ export async function resolveQuotaKey(req: NextRequest): Promise<{
   return { key: `ip_${ip}`, tier: "guest", userId: null, permanentCredits: 0 };
 }
 
-// ── Unified quota helpers ──────────────────────────────────────────────────
+// ── Supabase quota record helpers ──────────────────────────────────────────
 
-export function checkQuota(key: string, tier: Tier): boolean {
-  return getRecord(key, tier).opsUsed < TIER_LIMITS[tier];
+async function getRecord(key: string, tier: Tier): Promise<{ opsUsed: number; isFresh: boolean }> {
+  const periodStart = getPeriodStart(tier);
+  const db = getServiceSupabase();
+
+  const { data, error } = await db
+    .from("quotas")
+    .select("ops_used, period_start")
+    .eq("key", key)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[Quota] getRecord error:", error.message);
+    // Fail open — let the request through rather than block on DB error
+    return { opsUsed: 0, isFresh: true };
+  }
+
+  // No row yet, or period rolled over → treat as fresh
+  if (!data || data.period_start !== periodStart) {
+    return { opsUsed: 0, isFresh: true };
+  }
+
+  return { opsUsed: data.ops_used, isFresh: false };
 }
 
-export function consumeQuota(key: string, tier: Tier): void {
-  getRecord(key, tier).opsUsed += 1;
+async function upsertRecord(key: string, tier: Tier, opsUsed: number): Promise<void> {
+  const periodStart = getPeriodStart(tier);
+  const db = getServiceSupabase();
+
+  const { error } = await db.from("quotas").upsert(
+    { key, ops_used: opsUsed, period_start: periodStart, updated_at: new Date().toISOString() },
+    { onConflict: "key" }
+  );
+
+  if (error) {
+    console.error("[Quota] upsertRecord error:", error.message);
+  }
+}
+
+// ── Public quota helpers ───────────────────────────────────────────────────
+
+export async function checkQuota(key: string, tier: Tier): Promise<boolean> {
+  const { opsUsed } = await getRecord(key, tier);
+  return opsUsed < TIER_LIMITS[tier];
+}
+
+export async function consumeQuota(key: string, tier: Tier): Promise<void> {
+  const { opsUsed, isFresh } = await getRecord(key, tier);
+  const next = isFresh ? 1 : opsUsed + 1;
+  await upsertRecord(key, tier, next);
 }
 
 // ── Permanent credits (pay-as-you-go fallback) ─────────────────────────────
-/**
- * Atomically deducts one permanent credit from Clerk publicMetadata.
- * Returns true if a credit was successfully consumed; false if none remain.
- *
- * Called only when plan quota is already exhausted, so permanent credits
- * act as a seamless top-up without changing the quota period counter.
- */
 export async function consumePermanentCredit(userId: string): Promise<boolean> {
   const client = await clerkClient();
-  const user = await client.users.getUser(userId);
-  const meta = (user.publicMetadata ?? {}) as Record<string, unknown>;
+  const user   = await client.users.getUser(userId);
+  const meta   = (user.publicMetadata ?? {}) as Record<string, unknown>;
   const current = Number(meta.permanentCredits ?? 0);
 
   if (current <= 0) return false;
 
   await client.users.updateUserMetadata(userId, {
-    publicMetadata: {
-      ...meta,
-      permanentCredits: current - 1,
-    },
+    publicMetadata: { ...meta, permanentCredits: current - 1 },
   });
 
-  console.log(
-    `[Quota] Consumed 1 permanent credit for user ${userId} (${current} → ${current - 1})`
-  );
+  console.log(`[Quota] Consumed 1 permanent credit for user ${userId} (${current} → ${current - 1})`);
   return true;
 }

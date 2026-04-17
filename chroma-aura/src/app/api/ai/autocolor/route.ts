@@ -15,7 +15,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Image data is required" }, { status: 400 });
     }
 
-    // Validate that imageUrl is a plausible URL (http/https) or a data URL, not arbitrary input
     if (
       typeof imageUrl !== "string" ||
       imageUrl.length > 2_000_000 ||
@@ -28,7 +27,7 @@ export async function POST(req: NextRequest) {
 
     const { key, tier, userId, permanentCredits } = await resolveQuotaKey(req);
 
-    const planHasQuota = checkQuota(key, tier);
+    const planHasQuota = await checkQuota(key, tier);
     const canUseCredit = !planHasQuota && permanentCredits > 0 && userId !== null;
 
     if (!planHasQuota && !canUseCredit) {
@@ -48,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     if (response.success) {
       if (planHasQuota) {
-        consumeQuota(key, tier);
+        await consumeQuota(key, tier);
       } else {
         await consumePermanentCredit(userId!);
       }
