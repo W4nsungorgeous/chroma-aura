@@ -154,36 +154,37 @@ export default function PricingPage() {
         </div>
         
         {/* Pay-As-You-Go Section */}
-        <motion.div
+        <motion.div 
           initial={mounted ? { opacity: 0, y: 20 } : { opacity: 1, y: 0 }}
           animate={mounted ? { opacity: 1, y: 0 } : { opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
           className="mt-20 max-w-4xl mx-auto glass border-border-subtle rounded-[32px] p-8 md:p-12 relative overflow-hidden"
         >
           <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 justify-between">
-            <div className="flex-1">
+            <div>
               <h3 className="text-3xl font-bold font-heading mb-2 text-foreground">Pay-As-You-Go Credits</h3>
-              <p className="text-text-muted max-w-md mb-4">
-                Don't want to subscribe? Buy credits that <strong>never expire</strong> and top up whenever you need. 1 Credit = 1 Generation or Auto-Color.
+              <p className="text-text-muted max-w-md">
+                Just need a quick top-up? Buy custom credits that <strong>never expire</strong>. Start from $3 for 60 credits.
               </p>
-              <div className="flex flex-wrap gap-3 text-sm">
-                <span className="px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">1 credit = $0.05</span>
-                <span className="px-3 py-1.5 rounded-full bg-foreground/5 text-text-muted border border-border-subtle font-medium">Min $3 (60 credits) · Max $100</span>
-                <span className="px-3 py-1.5 rounded-full bg-foreground/5 text-text-muted border border-border-subtle font-medium">Never expire</span>
-              </div>
             </div>
-            <div className="flex flex-col items-center bg-background/50 p-6 rounded-3xl border border-white/10 shadow-inner min-w-[180px]">
-              <p className="text-xs text-text-muted uppercase tracking-wider font-bold mb-3">Starting from</p>
-              <div className="flex items-end gap-1 mb-1">
-                <span className="text-4xl font-black text-foreground">$3</span>
-              </div>
-              <p className="text-sm text-emerald-400 font-bold mb-4">150 credits</p>
-              <button
-                onClick={() => handlePlanClick("credits_50")}
-                className="px-8 py-3 rounded-xl bg-foreground text-background font-bold hover:scale-105 transition-all shadow-md w-full active:scale-95"
-              >
-                Buy Credits
-              </button>
+            <div className="flex flex-col items-center bg-background/50 p-6 rounded-3xl border border-white/10 shadow-inner min-w-[240px]">
+               <div className="flex items-center gap-3 mb-4">
+                  <div>
+                     <span className="text-4xl font-bold text-foreground">$</span>
+                     <span className="text-5xl font-black text-foreground">0.05</span>
+                  </div>
+                  <span className="text-text-muted text-xl">/</span>
+                  <span className="text-2xl font-black text-primary">1 Credit</span>
+               </div>
+               <div className="text-sm text-text-muted mb-4 text-center">
+                  Minimum order: $3.00 (60 credits).<br/>Pay exactly for what you need.
+               </div>
+               <button
+                 onClick={() => handlePlanClick("credits_custom")}
+                 className="px-8 py-3 rounded-xl bg-foreground text-background font-bold hover:scale-105 transition-all shadow-md w-full active:scale-95"
+               >
+                  Buy Custom Credits
+               </button>
             </div>
           </div>
         </motion.div>

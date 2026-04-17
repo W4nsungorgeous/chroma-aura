@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback, Suspense } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useUser, SignInButton } from "@clerk/nextjs";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ShieldCheck, ArrowLeft, Loader2, Clock, Zap, AlertCircle } from "lucide-react";
+import { ShieldCheck, ArrowLeft, Loader2, Clock, Zap, AlertCircle, LogIn } from "lucide-react";
 import { motion } from "framer-motion";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,7 @@ const PADDLE_PRICE_IDS: Record<string, string> = {
   starter_monthly: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_STARTER   ?? "",
   pro_monthly:     process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_PRO       ?? "",
   studio_monthly:  process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_STUDIO    ?? "",
-  credits_50:      process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_CREDIT_UNIT ?? "",
+  credits_custom:  process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_CREDIT_UNIT ?? "",
 };
 
 // ── Product display metadata (static plans only; credits are dynamic) ─────
@@ -41,7 +41,7 @@ const PLAN_PRODUCT_MAP: Record<
   },
   studio_monthly: {
     name: "Studio Plan", price: "$29.99", type: "subscription",
-    features: ["600 Lineart Generations / mo", "200 AI Auto-Colorings / mo", "Ultra HD Export (4K)", "Commercial Rights"],
+    features: ["500 Lineart Generations / mo", "200 AI Auto-Colorings / mo", "Ultra HD Export (4K)", "Commercial Rights"],
   },
 };
 
@@ -177,7 +177,7 @@ function SubscriptionBanner({
   permanentCredits: number;
   creditAmount: number;
 }) {
-  const isCredits = productId === "credits_50";
+  const isCredits = productId === "credits_custom";
   const isPlan = PLAN_IDS.has(productId);
   const hasActivePlan = planExpiresAt !== null && planExpiresAt > Date.now();
 
@@ -252,16 +252,9 @@ function CheckoutContent() {
 
   const productId = searchParams.get("plan") || "pro_monthly";
   const isPlan = PLAN_IDS.has(productId);
-  const isCredits = productId === "credits_50";
+  const isCredits = productId === "credits_custom";
   const priceId = PADDLE_PRICE_IDS[productId];
   const planInfo = PLAN_PRODUCT_MAP[productId];
-
-  // Auth gate
-  useEffect(() => {
-    if (isLoaded && !user) {
-      router.push(`/sign-in?redirect_url=${encodeURIComponent(`/checkout?plan=${productId}`)}`);
-    }
-  }, [isLoaded, user, router, productId]);
 
   // ── Initialize Paddle JS ──────────────────────────────────────────────
   useEffect(() => {
@@ -305,9 +298,10 @@ function CheckoutContent() {
     updateCreditQuantity(amount);
   };
 
-  const loading = !isLoaded || !subLoaded;
-
-  if (loading || !user) {
+  // Only block the entire page while Clerk is still loading (~<1s).
+  // When not logged in we still render the left column (selector / plan info)
+  // and show a sign-in prompt in the right column instead of the Paddle iframe.
+  if (!isLoaded || !subLoaded) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -425,28 +419,56 @@ function CheckoutContent() {
           )}
         </motion.div>
 
-        {/* ── Right Column: Paddle inline checkout ── */}
+        {/* ── Right Column: Paddle checkout or sign-in prompt ── */}
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="relative">
-          <div className="glass-card p-4 rounded-[32px] border border-border-subtle min-h-[500px] flex flex-col bg-card-bg overflow-hidden">
-            {!checkoutReady && (
-              <div className="flex-1 flex flex-col items-center justify-center gap-4 py-16">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                <p className="text-sm text-text-muted">Loading secure payment form…</p>
-              </div>
-            )}
-            {/*
-             * Paddle mounts its inline checkout iframe into any element
-             * with the CSS class matching frameTarget ("paddle-checkout-frame").
-             */}
-            <div
-              className={cn(
-                "paddle-checkout-frame w-full flex-1 transition-opacity duration-300",
-                checkoutReady ? "opacity-100" : "opacity-0 h-0 overflow-hidden"
+          {user ? (
+            /* ── Logged in: Paddle inline checkout ── */
+            <div className="glass-card p-4 rounded-[32px] border border-border-subtle min-h-[500px] flex flex-col bg-card-bg overflow-hidden">
+              {!checkoutReady && (
+                <div className="flex-1 flex flex-col items-center justify-center gap-4 py-16">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  <p className="text-sm text-text-muted">Loading secure payment form…</p>
+                </div>
               )}
-            />
-          </div>
+              {/*
+               * Paddle mounts its inline checkout iframe into any element
+               * with the CSS class matching frameTarget ("paddle-checkout-frame").
+               */}
+              <div
+                className={cn(
+                  "paddle-checkout-frame w-full flex-1 transition-opacity duration-300",
+                  checkoutReady ? "opacity-100" : "opacity-0 h-0 overflow-hidden"
+                )}
+              />
+            </div>
+          ) : (
+            /* ── Not logged in: sign-in prompt ── */
+            <div className="glass-card p-8 rounded-[32px] border border-border-subtle min-h-[500px] flex flex-col items-center justify-center gap-6 bg-card-bg">
+              <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center">
+                <LogIn className="w-8 h-8 text-primary" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-xl font-bold text-foreground mb-2">Sign in to complete purchase</h3>
+                <p className="text-sm text-text-muted max-w-xs">
+                  Create a free account or sign in to proceed to secure checkout.
+                </p>
+              </div>
+              <SignInButton
+                mode="redirect"
+                forceRedirectUrl={`/checkout?plan=${productId}`}
+              >
+                <button className="px-8 py-4 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all shadow-xl shadow-primary/20">
+                  Sign In / Sign Up
+                </button>
+              </SignInButton>
+              <div className="flex items-start gap-2 text-xs text-text-muted max-w-xs text-center">
+                <ShieldCheck className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                <span>Secure checkout powered by Paddle. Your selection will be saved.</span>
+              </div>
+            </div>
+          )}
 
-          {!priceId && (
+          {user && !priceId && (
             <p className="text-xs text-rose-400 text-center mt-3">
               Payment is not yet configured for this product. Please contact support.
             </p>
