@@ -12,6 +12,8 @@
     "@clerk/nextjs": "^7.0.12",
     "@fal-ai/client": "^1.9.5",
     "@fingerprintjs/fingerprintjs": "^5.2.0",
+    "@paddle/paddle-js": "^1.6.2",
+    "@paddle/paddle-node-sdk": "^3.7.0",
     "@supabase/supabase-js": "^2.102.1",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
