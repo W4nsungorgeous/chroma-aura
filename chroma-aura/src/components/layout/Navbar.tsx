@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Sparkles, Palette, Library, User, Menu, ChevronDown, ArrowRight } from "lucide-react";
+import { Sparkles, Palette, Library, User, Menu, ChevronDown, ArrowRight, LayoutGrid } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "@/components/ui/ThemeToggle";
@@ -47,7 +47,8 @@ export default function Navbar() {
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-8">
           <NavLink href="/studio" icon={<Sparkles className="w-4 h-4" />} label="Studio" />
-          <GalleryDropdown />
+          <NavLink href="/gallery" icon={<Library className="w-4 h-4" />} label="Gallery" />
+          <CategoriesDropdown />
           <NavLink href="/pricing" icon={<Sparkles className="w-4 h-4" />} label="Pricing" />
         </div>
 
@@ -101,7 +102,7 @@ function NavLink({ href, icon, label }: { href: string; icon: React.ReactNode; l
   );
 }
 
-function GalleryDropdown() {
+function CategoriesDropdown() {
   const [open, setOpen] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -120,15 +121,15 @@ function GalleryDropdown() {
         href="/coloring-pages"
         className="flex items-center gap-2 text-sm font-semibold text-text-muted hover:text-primary transition-colors relative group"
       >
-        <Library className="w-4 h-4" />
-        Gallery
+        <LayoutGrid className="w-4 h-4" />
+        Categories
         <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", open && "rotate-180")} />
         <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
       </Link>
 
       {open && (
         <div className="absolute left-1/2 -translate-x-1/2 top-full pt-4">
-          <div className="w-[420px] glass rounded-2xl border border-glass-border shadow-2xl p-3 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="w-[420px] bg-white rounded-2xl border border-slate-200 shadow-2xl p-3 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="grid grid-cols-2 gap-1">
               {CATEGORIES.map(cat => {
                 const count = themesByCategory(cat.slug).length;
@@ -139,14 +140,14 @@ function GalleryDropdown() {
                     className="group/item flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl hover:bg-primary/5 transition-colors"
                   >
                     <div className="min-w-0">
-                      <div className="text-sm font-bold text-foreground group-hover/item:text-primary transition-colors truncate">
+                      <div className="text-sm font-bold text-slate-800 group-hover/item:text-primary transition-colors truncate">
                         {cat.title}
                       </div>
-                      <div className="text-[10px] text-text-muted uppercase tracking-widest font-bold">
+                      <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
                         {count} {count === 1 ? "page" : "pages"}
                       </div>
                     </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-text-muted/40 group-hover/item:text-primary group-hover/item:translate-x-0.5 transition-all shrink-0" />
+                    <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover/item:text-primary group-hover/item:translate-x-0.5 transition-all shrink-0" />
                   </Link>
                 );
               })}
