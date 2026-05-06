@@ -123,30 +123,30 @@ async function upsertRecord(key: string, tier: Tier, opsUsed: number): Promise<v
 
 // ── Public quota helpers ───────────────────────────────────────────────────
 
-export async function checkQuota(key: string, tier: Tier): Promise<boolean> {
+export async function checkQuota(key: string, tier: Tier, cost: number = 1): Promise<boolean> {
   const { opsUsed } = await getRecord(key, tier);
-  return opsUsed < TIER_LIMITS[tier];
+  return opsUsed + cost <= TIER_LIMITS[tier];
 }
 
-export async function consumeQuota(key: string, tier: Tier): Promise<void> {
+export async function consumeQuota(key: string, tier: Tier, cost: number = 1): Promise<void> {
   const { opsUsed, isFresh } = await getRecord(key, tier);
-  const next = isFresh ? 1 : opsUsed + 1;
+  const next = isFresh ? cost : opsUsed + cost;
   await upsertRecord(key, tier, next);
 }
 
 // ── Permanent credits (pay-as-you-go fallback) ─────────────────────────────
-export async function consumePermanentCredit(userId: string): Promise<boolean> {
+export async function consumePermanentCredit(userId: string, cost: number = 1): Promise<boolean> {
   const client = await clerkClient();
   const user   = await client.users.getUser(userId);
   const meta   = (user.publicMetadata ?? {}) as Record<string, unknown>;
   const current = Number(meta.permanentCredits ?? 0);
 
-  if (current <= 0) return false;
+  if (current < cost) return false;
 
   await client.users.updateUserMetadata(userId, {
-    publicMetadata: { ...meta, permanentCredits: current - 1 },
+    publicMetadata: { ...meta, permanentCredits: current - cost },
   });
 
-  console.log(`[Quota] Consumed 1 permanent credit for user ${userId} (${current} → ${current - 1})`);
+  console.log(`[Quota] Consumed ${cost} permanent credit(s) for user ${userId} (${current} → ${current - cost})`);
   return true;
 }

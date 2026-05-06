@@ -101,10 +101,10 @@ export function useQuota() {
     } catch { /* localStorage full or unavailable */ }
   };
 
-  /** Decrement one op from the client-side pool (UI optimistic update). Returns false if exhausted. */
-  const decrementOps = () => {
-    if (opsUsed < limit) {
-      const next = opsUsed + 1;
+  /** Decrement ops from the client-side pool (UI optimistic update). Returns false if exhausted. */
+  const decrementOps = (cost: number = 1) => {
+    if (opsUsed + cost <= limit) {
+      const next = opsUsed + cost;
       setOpsUsed(next);
       persist(next);
       return true;

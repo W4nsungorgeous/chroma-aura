@@ -1,16 +1,17 @@
 "use client";
 
-import { 
-  Palette, 
-  PaintBucket, 
-  Eraser, 
-  Brush, 
-  Undo2, 
-  Redo2, 
-  Download, 
+import {
+  Palette,
+  PaintBucket,
+  Eraser,
+  Brush,
+  Undo2,
+  Redo2,
+  Download,
   Sparkles,
   RotateCcw,
-  Save
+  Save,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ interface ToolbarProps {
   canvasSize: { width: number; height: number; ratio: string };
   setCanvasSize: (size: { width: number; height: number; ratio: string }) => void;
   onClear?: () => void;
+  onDelete?: () => void;
   onDownload?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
@@ -53,6 +55,7 @@ export default function Toolbar({
   canvasSize,
   setCanvasSize,
   onClear,
+  onDelete,
   onDownload,
   onUndo,
   onRedo,
@@ -232,8 +235,9 @@ export default function Toolbar({
           <ActionButton onClick={onRedo} icon={<Redo2 className="w-4 h-4" />} label="Redo" />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-2">
           <ActionButton onClick={onClear} icon={<RotateCcw className="w-4 h-4" />} label="Clear" />
+          <ActionButton onClick={onDelete} icon={<Trash2 className="w-4 h-4" />} label="Delete" danger />
           <ActionButton onClick={onDownload} icon={<Download className="w-4 h-4" />} label="Export" />
         </div>
 
@@ -266,16 +270,18 @@ function ToolButton({ active, onClick, icon, label }: { active: boolean; onClick
   );
 }
 
-function ActionButton({ onClick, icon, label, disabled = false }: { onClick?: () => void; icon: React.ReactNode; label: string; disabled?: boolean }) {
+function ActionButton({ onClick, icon, label, disabled = false, danger = false }: { onClick?: () => void; icon: React.ReactNode; label: string; disabled?: boolean; danger?: boolean }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       className={cn(
         "flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all border cursor-pointer active:scale-95",
-        disabled 
-          ? "opacity-30 cursor-not-allowed border-border-subtle" 
-          : "bg-icon-bg border-border-subtle hover:bg-icon-bg/50 text-foreground/70 hover:text-foreground active:scale-95"
+        disabled
+          ? "opacity-30 cursor-not-allowed border-border-subtle"
+          : danger
+            ? "bg-rose-500/5 border-rose-500/20 hover:bg-rose-500/15 hover:border-rose-500/40 text-rose-500/80 hover:text-rose-500"
+            : "bg-icon-bg border-border-subtle hover:bg-icon-bg/50 text-foreground/70 hover:text-foreground"
       )}
     >
       {icon}

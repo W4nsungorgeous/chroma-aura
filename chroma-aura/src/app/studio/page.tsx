@@ -5,11 +5,12 @@ import { useSearchParams } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import ColoringCanvas, { ColoringCanvasRef } from "@/components/studio/ColoringCanvas";
 import Toolbar from "@/components/studio/Toolbar";
-import { Sparkles, Wand2, Mic, ImageIcon, History, Undo2, Save, X, Trash2, Check, Download, CheckCircle2, Maximize2, Minimize2, Brush, PaintBucket, Eraser, Redo2, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
+import { Sparkles, Wand2, Mic, ImageIcon, History, Undo2, Save, X, Trash2, Check, Download, CheckCircle2, Maximize2, Minimize2, Brush, PaintBucket, Eraser, Redo2, RotateCcw, ZoomIn, ZoomOut, Cpu } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useQuota } from "@/hooks/useQuota";
 import { SignInButton } from "@clerk/nextjs";
+import { MODELS, DEFAULT_MODEL, ModelId } from "@/lib/ai/models";
 
 interface SavedProject {
   id: string;
@@ -29,6 +30,8 @@ function StudioMain() {
   const [isAutoColoring, setIsAutoColoring] = useState(false);
   const [autoColorError, setAutoColorError] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
+  const [selectedModel, setSelectedModel] = useState<ModelId>(DEFAULT_MODEL);
+  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   // generatedImage: what is currently rendered on the canvas (may be lineart OR auto-colored result)
   const [generatedImage, setGeneratedImage] = useState<string | undefined>(undefined);
   // lineartUrl: the original AI-generated lineart — never overwritten by auto-color results,
@@ -52,11 +55,15 @@ function StudioMain() {
     "#FFFF00", "#FF00FF", "#00FFFF", "#FFA500", "#800080",
     "#8B5CF6", "#EC4899", "#3B82F6", "#10B981", "#F59E0B",
   ];
-  
+
   const canvasRef = useRef<ColoringCanvasRef>(null);
   const fullscreenContainerRef = useRef<HTMLDivElement>(null);
+  const originalCanvasSizeRef = useRef({ width: 1024, height: 1024, ratio: "1:1" });
   const isMountedRef = useRef(true);
-  useEffect(() => { return () => { isMountedRef.current = false; }; }, []);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   const {
     tier,
@@ -179,7 +186,7 @@ function StudioMain() {
   };
 
   const handleToggleSelection = (id: string) => {
-    setSelectedIds(prev => 
+    setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   };
@@ -215,7 +222,6 @@ function StudioMain() {
 
   const deviceHeader: Record<string, string> = deviceId ? { "X-Device-Id": deviceId } : {};
 
-  // ── System-level fullscreen helpers ──────────────────────────────────────
   const enterFullscreen = async () => {
     try {
       await document.documentElement.requestFullscreen();
@@ -308,28 +314,37 @@ function StudioMain() {
   };
 
   const handleGenerate = async () => {
-    if (!prompt || isGenerating || generationQuota.used >= generationQuota.limit) return;
+    if (!prompt || isGenerating) return;
     setIsGenerating(true);
     setGenerateError(null);
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 300000); // 300s timeout
+
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...deviceHeader },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, model: selectedModel }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
+
       const data = await response.json();
       if (data.success) {
-        // Always display the result — quota is enforced server-side.
-        // decrementGeneration() is a UI counter only; never gate image display on it.
         setGeneratedImage(data.imageUrl);
         setLineartUrl(data.imageUrl);
         setPrompt("");
-        decrementOps();
+        const selectedModelConfig = MODELS.find(m => m.id === selectedModel) || MODELS.find(m => m.id === DEFAULT_MODEL)!;
+        decrementOps(selectedModelConfig.cost);
       } else {
         setGenerateError(data.error || "Generation failed. Please try again.");
       }
-    } catch {
-      setGenerateError("Connection error. Please try again.");
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        setGenerateError("Request timed out. The server might be unreachable or hanging due to proxy settings.");
+      } else {
+        setGenerateError("Connection error. Please try again.");
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -358,11 +373,11 @@ function StudioMain() {
           {/* Main Controls - Left Sidebar */}
           <div className="col-span-3 space-y-6 h-full overflow-y-auto pr-2 custom-scrollbar">
             {/* Generation Form */}
-            <div className="glass p-8 rounded-[40px] border-white/10 shadow-2xl relative overflow-hidden group">
+            <div className="glass p-8 rounded-[40px] border-white/10 shadow-2xl relative group z-10">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                 <Sparkles className="w-12 h-12" />
               </div>
-              
+
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-2xl bg-foreground/5 flex items-center justify-center">
                   <Wand2 className="w-5 h-5" />
@@ -378,30 +393,30 @@ function StudioMain() {
                     placeholder="Describe the lineart you want to create..."
                     className="w-full h-40 bg-foreground/5 border-none rounded-[32px] p-6 text-sm resize-none focus:ring-2 focus:ring-foreground/20 transition-all placeholder:text-foreground/20"
                   />
-                    <div className="absolute bottom-4 right-4 flex items-center gap-2">
-                      <button 
-                        onClick={handleEnhancePrompt}
-                        className={cn(
-                          "p-3 rounded-2xl transition-all shadow-xl backdrop-blur-md bg-background/80 text-foreground hover:bg-background border border-white/5 cursor-pointer active:scale-95",
-                          isEnhancing && "animate-pulse"
-                        )}
-                        title="AI Enhance Prompt"
-                      >
-                        <Wand2 className="w-4 h-4" />
-                      </button>
-                      <button 
-                        className="p-3 rounded-2xl transition-all shadow-xl backdrop-blur-md bg-background/80 text-foreground hover:bg-background border border-white/5 cursor-pointer active:scale-95"
-                        title="Voice Input"
-                      >
-                        <Mic className="w-4 h-4" />
-                      </button>
-                      <button 
-                        className="p-3 rounded-2xl transition-all shadow-xl backdrop-blur-md bg-background/80 text-foreground hover:bg-background border border-white/5 cursor-pointer active:scale-95"
-                        title="Upload Image Reference"
-                      >
-                        <ImageIcon className="w-4 h-4" />
-                      </button>
-                    </div>
+                  <div className="absolute bottom-4 right-4 flex items-center gap-2">
+                    <button
+                      onClick={handleEnhancePrompt}
+                      className={cn(
+                        "p-3 rounded-2xl transition-all shadow-xl backdrop-blur-md bg-background/80 text-foreground hover:bg-background border border-white/5 cursor-pointer active:scale-95",
+                        isEnhancing && "animate-pulse"
+                      )}
+                      title="AI Enhance Prompt"
+                    >
+                      <Wand2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      className="p-3 rounded-2xl transition-all shadow-xl backdrop-blur-md bg-background/80 text-foreground hover:bg-background border border-white/5 cursor-pointer active:scale-95"
+                      title="Voice Input"
+                    >
+                      <Mic className="w-4 h-4" />
+                    </button>
+                    <button
+                      className="p-3 rounded-2xl transition-all shadow-xl backdrop-blur-md bg-background/80 text-foreground hover:bg-background border border-white/5 cursor-pointer active:scale-95"
+                      title="Upload Image Reference"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {enhanceError && (
@@ -421,7 +436,72 @@ function StudioMain() {
                 </div>
 
                 <div className="space-y-3 pt-2">
-                  <button 
+                  {/* Model Selector — choose which AI engine generates the lineart */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsModelMenuOpen(o => !o)}
+                      className="w-full py-3 px-4 rounded-2xl bg-foreground/5 hover:bg-foreground/10 transition-all flex items-center justify-between gap-2 cursor-pointer active:scale-[0.99] border border-white/5"
+                    >
+                      <span className="flex items-center gap-2 text-sm font-medium min-w-0 flex-1">
+                        <Cpu className="w-4 h-4 text-foreground/50 shrink-0" />
+                        <span className="text-foreground/50 shrink-0">Model:</span>
+                        <span className="text-base shrink-0">{MODELS.find(m => m.id === selectedModel)?.emoji}</span>
+                        <span className="truncate">{MODELS.find(m => m.id === selectedModel)?.label}</span>
+                        <span className="ml-auto px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold border border-primary/20 whitespace-nowrap shrink-0">
+                          {MODELS.find(m => m.id === selectedModel)?.cost} {MODELS.find(m => m.id === selectedModel)?.cost === 1 ? 'Credit' : 'Credits'}
+                        </span>
+                      </span>
+                      <svg className={cn("w-4 h-4 text-foreground/50 transition-transform shrink-0", isModelMenuOpen && "rotate-180")} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+
+                    <AnimatePresence>
+                      {isModelMenuOpen && (
+                        <>
+                          {/* click-outside backdrop */}
+                          <div className="fixed inset-0 z-40" onClick={() => setIsModelMenuOpen(false)} />
+                          <motion.div
+                            initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute z-50 w-[calc(100%+24px)] -left-3 mt-2 p-1.5 bg-background rounded-2xl border border-white/10 shadow-2xl overflow-y-auto max-h-[320px]"
+                          >
+                            {MODELS.map(m => (
+                              <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => { setSelectedModel(m.id); setIsModelMenuOpen(false); }}
+                                className={cn(
+                                  "w-full text-left px-3 py-2.5 rounded-xl flex items-start gap-3 transition-all cursor-pointer",
+                                  selectedModel === m.id ? "bg-foreground/10" : "hover:bg-foreground/5"
+                                )}
+                              >
+                                <span className="text-lg leading-none mt-0.5 shrink-0">{m.emoji}</span>
+                                <span className="flex-1 min-w-0">
+                                  <span className="flex items-center gap-2 min-w-0">
+                                    <span className="text-sm font-bold truncate">{m.label}</span>
+                                    {m.isNew && (
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-500 border border-rose-500/20 shrink-0">NEW</span>
+                                    )}
+                                  </span>
+                                  <span className="block text-[11px] text-foreground/50 truncate mt-0.5">{m.description}</span>
+                                </span>
+                                <div className="flex items-center gap-2 mt-0.5 shrink-0">
+                                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold border border-primary/20 whitespace-nowrap shrink-0">
+                                    {m.cost} {m.cost === 1 ? 'Credit' : 'Credits'}
+                                  </span>
+                                  {selectedModel === m.id && <Check className="w-4 h-4 text-primary shrink-0" />}
+                                </div>
+                              </button>
+                            ))}
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  <button
                     disabled={isGenerating || !prompt}
                     onClick={handleGenerate}
                     className="w-full py-4 rounded-2xl bg-foreground text-background font-bold flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 transition-all shadow-xl shadow-foreground/10 group active:scale-[0.98]"
@@ -478,7 +558,7 @@ function StudioMain() {
                   </div>
                   <h3 className="font-bold">History</h3>
                 </div>
-                <button 
+                <button
                   onClick={() => setIsViewingHistory(true)}
                   className="text-xs font-bold text-foreground/40 hover:text-foreground transition-colors"
                 >
@@ -673,7 +753,7 @@ function StudioMain() {
             )}>
               {/* Zoom wrapper — fills container in both modes; scale only applied in fullscreen */}
               <div
-                className={cn(isFullscreen ? "" : "w-full h-full")}
+                className="w-full h-full"
                 style={isFullscreen ? {
                   transform: `scale(${zoom})`,
                   transformOrigin: "center center",
@@ -690,6 +770,7 @@ function StudioMain() {
                   height={canvasSize.height}
                   onAction={decrementOps}
                   cssZoom={isFullscreen ? zoom : 1}
+                  isFullscreen={isFullscreen}
                 />
               </div>
 
@@ -839,6 +920,11 @@ function StudioMain() {
               onUndo={() => canvasRef.current?.undo()}
               onRedo={() => canvasRef.current?.redo()}
               onClear={() => canvasRef.current?.clear()}
+              onDelete={() => {
+                canvasRef.current?.deleteAll();
+                setGeneratedImage(undefined);
+                setLineartUrl(undefined);
+              }}
               onDownload={() => canvasRef.current?.download()}
               onSave={handleSaveProject}
               canvasSize={canvasSize}
@@ -852,14 +938,14 @@ function StudioMain() {
       <AnimatePresence>
         {isViewingHistory && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-8">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsViewingHistory(false)}
               className="absolute inset-0 bg-black/60 backdrop-blur-xl"
             />
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -873,15 +959,15 @@ function StudioMain() {
                     {savedProjects.length > 0 && (
                       <div className="flex items-center gap-2">
                         <div className="w-1 h-1 rounded-full bg-foreground/20" />
-                        <button 
+                        <button
                           onClick={() => {
                             setIsSelectionMode(!isSelectionMode);
                             if (isSelectionMode) setSelectedIds([]);
                           }}
                           className={cn(
                             "text-xs font-bold transition-all px-3 py-1 rounded-lg",
-                            isSelectionMode 
-                              ? "bg-primary text-white" 
+                            isSelectionMode
+                              ? "bg-primary text-white"
                               : "bg-foreground/5 text-foreground/40 hover:text-foreground hover:bg-foreground/10"
                           )}
                         >
@@ -891,26 +977,26 @@ function StudioMain() {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-4">
                   <AnimatePresence>
                     {isSelectionMode && (
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 20 }}
                         className="flex items-center gap-2"
                       >
-                        <button 
+                        <button
                           onClick={handleSelectAll}
                           className="px-4 py-2 rounded-xl bg-foreground/5 hover:bg-foreground/10 text-xs font-bold transition-all flex items-center gap-2"
                         >
                           {selectedIds.length === savedProjects.length ? "Deselect All" : "Select All"}
                         </button>
-                        
+
                         <div className="w-[1px] h-6 bg-white/10 mx-2" />
-                        
-                        <button 
+
+                        <button
                           disabled={selectedIds.length === 0}
                           onClick={handleBatchDownload}
                           className="px-4 py-2 rounded-xl bg-foreground/5 hover:bg-foreground/10 disabled:opacity-30 text-xs font-bold transition-all flex items-center gap-2"
@@ -918,8 +1004,8 @@ function StudioMain() {
                           <Download className="w-4 h-4" />
                           Download ({selectedIds.length})
                         </button>
-                        
-                        <button 
+
+                        <button
                           disabled={selectedIds.length === 0}
                           onClick={handleBatchDelete}
                           className="px-4 py-2 rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white disabled:opacity-30 text-xs font-bold transition-all flex items-center gap-2"
@@ -931,7 +1017,7 @@ function StudioMain() {
                     )}
                   </AnimatePresence>
 
-                  <button 
+                  <button
                     onClick={() => {
                       setIsViewingHistory(false);
                       setIsSelectionMode(false);
@@ -948,7 +1034,7 @@ function StudioMain() {
                 {savedProjects.map((project) => {
                   const isSelected = selectedIds.includes(project.id);
                   return (
-                    <div 
+                    <div
                       key={project.id}
                       onClick={() => isSelectionMode && handleToggleSelection(project.id)}
                       className={cn(
@@ -960,7 +1046,7 @@ function StudioMain() {
                       )}
                     >
                       {/* Lineart Layer (Front/Rotating) */}
-                      <motion.div 
+                      <motion.div
                         initial={false}
                         animate={isSelectionMode ? {} : {
                           rotateY: 0,
@@ -979,13 +1065,13 @@ function StudioMain() {
                         transition={{ type: "spring", stiffness: 300, damping: 25 }}
                         className="absolute inset-0 z-0 rounded-[32px] overflow-hidden border border-white/5"
                       >
-                        <img 
-                          src={project.lineartUrl || project.dataUrl} 
-                          alt="Lineart" 
+                        <img
+                          src={project.lineartUrl || project.dataUrl}
+                          alt="Lineart"
                           className={cn(
                             "w-full h-full object-cover",
                             !project.lineartUrl && "grayscale contrast-[1.2] brightness-[1.1]"
-                          )} 
+                          )}
                         />
                       </motion.div>
 
@@ -993,10 +1079,10 @@ function StudioMain() {
                       {!isSelectionMode && (
                         <motion.div
                           initial={{ x: "100%", opacity: 0, rotateY: 0, scale: 0.9 }}
-                          whileHover={{ 
-                            x: 0, 
-                            opacity: 1, 
-                            rotateY: 0, 
+                          whileHover={{
+                            x: 0,
+                            opacity: 1,
+                            rotateY: 0,
                             scale: 1,
                             zIndex: 10,
                             boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)"
@@ -1014,7 +1100,7 @@ function StudioMain() {
                           <img src={project.dataUrl} alt="Project" className="w-full h-full object-cover" />
                         </div>
                       )}
-                      
+
                       {/* Selection Overlay */}
                       {isSelectionMode && (
                         <div className="absolute top-4 right-4 z-20">
@@ -1030,7 +1116,7 @@ function StudioMain() {
 
                       {!isSelectionMode && (
                         <div className="absolute inset-0 z-30 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-4">
-                          <button 
+                          <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleLoadHistory(project);
@@ -1039,7 +1125,7 @@ function StudioMain() {
                           >
                             Restore
                           </button>
-                          <button 
+                          <button
                             onClick={(e) => {
                               e.stopPropagation();
                               const link = document.createElement("a");
@@ -1051,7 +1137,7 @@ function StudioMain() {
                           >
                             Download
                           </button>
-                          <button 
+                          <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleDeleteHistory(project.id);
@@ -1082,14 +1168,14 @@ function StudioMain() {
       <AnimatePresence>
         {idsToDelete.length > 0 && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIdsToDelete([])}
               className="absolute inset-0 bg-black/40 backdrop-blur-md"
             />
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -1102,19 +1188,19 @@ function StudioMain() {
                 {idsToDelete.length > 1 ? `Delete ${idsToDelete.length} Projects?` : "Delete Project?"}
               </h3>
               <p className="text-foreground/40 text-sm mb-8 leading-relaxed">
-                {idsToDelete.length > 1 
+                {idsToDelete.length > 1
                   ? `Are you sure you want to remove these ${idsToDelete.length} projects? This action cannot be undone.`
                   : "Are you sure you want to remove this project? This action cannot be undone and will be lost forever."
                 }
               </p>
               <div className="grid grid-cols-2 gap-4">
-                <button 
+                <button
                   onClick={() => setIdsToDelete([])}
                   className="py-4 rounded-2xl bg-foreground/5 font-bold hover:bg-foreground/10 transition-all cursor-pointer active:scale-95"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={confirmDelete}
                   className="py-4 rounded-2xl bg-rose-500 text-white font-bold hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20 cursor-pointer active:scale-95"
                 >

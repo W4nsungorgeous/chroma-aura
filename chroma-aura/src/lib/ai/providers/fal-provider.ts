@@ -70,24 +70,18 @@ export class FalProvider implements AIProvider {
     });
   }
 
-  async generateLineart(prompt: string): Promise<AIResponse> {
+  async generateLineart(prompt: string, endpoint = "fal-ai/flux/dev"): Promise<AIResponse> {
     try {
       const enhancedPrompt = buildLineartPrompt(prompt);
 
-      const result = await fal.subscribe("fal-ai/flux/dev", {
-        input: {
-          prompt: enhancedPrompt,
-          image_size: "square_hd",
-          num_inference_steps: 28,
-          guidance_scale: 3.5,
-          num_images: 1,
-          enable_safety_checker: true,
-        },
-      });
+      // Per-endpoint input shapes — Flux variants and Nano Banana take slightly different params.
+      const input = this.buildInput(endpoint, enhancedPrompt);
+
+      const result = await fal.subscribe(endpoint, { input });
 
       const imageUrl = (result.data as any)?.images?.[0]?.url;
       if (!imageUrl) {
-        return { success: false, error: "No image returned from fal.ai", imageUrl: "" };
+        return { success: false, error: `No image returned from ${endpoint}`, imageUrl: "" };
       }
 
       return {
@@ -96,9 +90,39 @@ export class FalProvider implements AIProvider {
         success: true,
       };
     } catch (error) {
-      console.error("[FalProvider] generateLineart error:", error);
+      console.error(`[FalProvider] generateLineart error (${endpoint}):`, error);
       return { success: false, error: String(error), imageUrl: "" };
     }
+  }
+
+  private buildInput(endpoint: string, prompt: string): Record<string, unknown> {
+    const input: Record<string, unknown> = { prompt };
+
+    if (endpoint.includes("schnell") || endpoint.includes("turbo")) {
+      input.image_size = "square_hd";
+      input.num_inference_steps = 4;
+      input.num_images = 1;
+      input.enable_safety_checker = true;
+    } else if (endpoint.includes("flux-pro") || endpoint.includes("flux-2-pro")) {
+      input.image_size = "square_hd";
+      input.num_images = 1;
+      input.enable_safety_checker = true;
+      input.safety_tolerance = "3";
+    } else if (endpoint.includes("nano-banana")) {
+      input.num_images = 1;
+    } else if (endpoint.includes("seedream")) {
+      input.image_size = "square_hd";
+      input.num_images = 1;
+    } else if (endpoint.includes("openai/")) {
+      input.image_size = "square_hd";
+      input.num_images = 1;
+    } else {
+      input.image_size = "square_hd";
+      input.num_images = 1;
+      input.enable_safety_checker = true;
+    }
+
+    return input;
   }
 
   async enhancePrompt(prompt: string): Promise<EnhanceResponse> {

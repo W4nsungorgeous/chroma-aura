@@ -7,6 +7,7 @@ export interface ColoringCanvasRef {
   undo: () => void;
   redo: () => void;
   clear: () => void;
+  deleteAll: () => void;
   download: () => void;
   getCanvasData: () => string;
   loadCanvasData: (dataUrl: string) => Promise<void>;
@@ -27,6 +28,7 @@ interface ColoringCanvasProps {
    *  visual-pixel coordinates back to the inner wrapper's CSS-pixel coordinate space for
    *  correct brush cursor placement. Defaults to 1 (no external transform). */
   cssZoom?: number;
+  isFullscreen?: boolean;
 }
 
 const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
@@ -39,6 +41,7 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
   onAction,
   isDisabled = false,
   cssZoom = 1,
+  isFullscreen = false,
 }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -67,6 +70,12 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
     const updateDisplaySize = () => {
       const { width: cw, height: ch } = container.getBoundingClientRect();
       if (cw === 0 || ch === 0) return;
+      
+      if (isFullscreen) {
+        setDisplaySize({ width: cw, height: ch });
+        return;
+      }
+
       const artboardRatio = artboardWidth / artboardHeight;
       const containerRatio = cw / ch;
       let displayWidth: number, displayHeight: number;
@@ -84,7 +93,7 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
     observer.observe(container);
     updateDisplaySize();
     return () => observer.disconnect();
-  }, [artboardWidth, artboardHeight]);
+  }, [artboardWidth, artboardHeight, isFullscreen]);
 
   const saveState = useCallback(() => {
     const canvas = canvasRef.current;
@@ -133,7 +142,7 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
       const dpr = window.devicePixelRatio || 1;
       ctx.fillStyle = "white";
       ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
-      
+
       if (imageUrl) {
         const img = new Image();
         img.crossOrigin = "anonymous";
@@ -148,6 +157,17 @@ const ColoringCanvas = forwardRef<ColoringCanvasRef, ColoringCanvasProps>(({
       } else {
         saveState();
       }
+    },
+    deleteAll: () => {
+      const canvas = canvasRef.current;
+      const ctx = contextRef.current;
+      if (!canvas || !ctx) return;
+
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, artboardWidth, artboardHeight);
+      // saveState records the now-blank canvas as the source-of-truth so a
+      // subsequent ratio change does not restore the AI image from a stale snapshot.
+      saveState();
     },
     download: () => {
       const canvas = canvasRef.current;

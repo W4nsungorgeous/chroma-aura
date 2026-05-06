@@ -13,7 +13,8 @@ export interface EnhanceResponse {
 
 export interface AIProvider {
   name: string;
-  generateLineart(prompt: string): Promise<AIResponse>;
+  /** Optional `endpoint` lets the bridge pick which model on the provider to use. */
+  generateLineart(prompt: string, endpoint?: string): Promise<AIResponse>;
   enhancePrompt(prompt: string): Promise<EnhanceResponse>;
   autoColor(imageUrl: string): Promise<AIResponse>;
 }
