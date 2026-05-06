@@ -2,24 +2,18 @@
 
 import Link from "next/link";
 import { Palette, Globe, Send, Camera, Mail } from "lucide-react";
+import { CATEGORIES, THEMES } from "@/data/coloring-pages";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
 
-  const categories = [
-    { name: "Animals", slug: "animals" },
-    { name: "Mandala", slug: "mandala" },
-    { name: "Fantasy", slug: "fantasy" },
-    { name: "Space", slug: "space" },
-    { name: "Flowers", slug: "flowers" },
-  ];
+  // Top 5 categories (capped to fit the column)
+  const footerCategories = CATEGORIES.slice(0, 5);
 
-  const styles = [
-    { name: "Cute Anime", slug: "cute-anime" },
-    { name: "Detailed Lineart", slug: "detailed-lineart" },
-    { name: "Minimalist", slug: "minimalist" },
-    { name: "Pop Art", slug: "pop-art" },
-  ];
+  // Top 5 themes by search volume — high-traffic pSEO entry points
+  const popularThemes = [...THEMES]
+    .sort((a, b) => b.searchVolume - a.searchVolume)
+    .slice(0, 5);
 
   return (
     <footer className="bg-section-muted border-t border-glass-border pt-20 pb-10">
@@ -30,7 +24,7 @@ export default function Footer() {
               <div className="bg-iridescent p-2 rounded-xl">
                 <Palette className="w-6 h-6 text-white" />
               </div>
-              <span 
+              <span
                 className="text-2xl font-bold font-heading bg-clip-text text-transparent"
                 style={{ backgroundImage: 'var(--title-gradient)' }}
               >
@@ -38,7 +32,7 @@ export default function Footer() {
               </span>
             </Link>
             <p className="text-text-muted text-sm leading-relaxed opacity-80">
-              Empowering creators worldwide with AI-driven coloring experiences. 
+              Empowering creators worldwide with AI-driven coloring experiences.
               From multi-modal inputs to immersive digital studios.
             </p>
             <div className="flex items-center gap-4">
@@ -52,20 +46,27 @@ export default function Footer() {
           <div>
              <h4 className="font-bold mb-6 text-foreground">Coloring Categories</h4>
              <ul className="space-y-4">
-                {categories.map((cat) => (
+                {footerCategories.map((cat) => (
                   <li key={cat.slug}>
-                    <FooterLink href={`/coloring-pages/${cat.slug}`}>{cat.name}</FooterLink>
+                    <FooterLink href={`/coloring-pages/${cat.slug}`}>{cat.title}</FooterLink>
                   </li>
                 ))}
+                <li>
+                  <FooterLink href="/coloring-pages">
+                    <span className="text-primary">Browse all →</span>
+                  </FooterLink>
+                </li>
              </ul>
           </div>
 
           <div>
-             <h4 className="font-bold mb-6 text-foreground">Popular Styles</h4>
+             <h4 className="font-bold mb-6 text-foreground">Popular Pages</h4>
              <ul className="space-y-4">
-                {styles.map((style) => (
-                  <li key={style.slug}>
-                    <FooterLink href={`/coloring-pages/style/${style.slug}`}>{style.name}</FooterLink>
+                {popularThemes.map((theme) => (
+                  <li key={`${theme.category}/${theme.slug}`}>
+                    <FooterLink href={`/coloring-pages/${theme.category}/${theme.slug}`}>
+                      {theme.title}
+                    </FooterLink>
                   </li>
                 ))}
              </ul>
@@ -75,7 +76,6 @@ export default function Footer() {
              <h4 className="font-bold mb-6 text-foreground">Support</h4>
              <ul className="space-y-4">
                 <li><FooterLink href="/pricing">Pricing</FooterLink></li>
-                <li><FooterLink href="/about">About Us</FooterLink></li>
                 <li><FooterLink href="/terms">Terms of Service</FooterLink></li>
                 <li><FooterLink href="/privacy">Privacy Policy</FooterLink></li>
                 <li><FooterLink href="/refund">Refund Policy</FooterLink></li>
@@ -97,8 +97,8 @@ export default function Footer() {
 
 function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <Link 
-      href={href} 
+    <Link
+      href={href}
       className="text-text-muted hover:text-primary transition-colors duration-200 block font-medium opacity-80 hover:opacity-100"
     >
       {children}
@@ -108,8 +108,8 @@ function FooterLink({ href, children }: { href: string; children: React.ReactNod
 
 function SocialIcon({ icon, href }: { icon: React.ReactNode; href: string }) {
   return (
-    <a 
-      href={href} 
+    <a
+      href={href}
       className="w-10 h-10 rounded-full glass flex items-center justify-center hover:scale-110 active:scale-95 transition-all text-text-muted hover:text-primary hover:bg-primary/5 shadow-sm"
     >
       {icon}

@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Sparkles, Palette, Library, User, Menu } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Sparkles, Palette, Library, User, Menu, ChevronDown, ArrowRight } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import { useUser, SignInButton, SignUpButton } from "@clerk/nextjs";
 import UserMenu from "@/components/ui/UserMenu";
+import { CATEGORIES, themesByCategory } from "@/data/coloring-pages";
 
 export default function Navbar() {
   const { isLoaded, isSignedIn } = useUser();
@@ -30,12 +31,12 @@ export default function Navbar() {
       <div className="glass rounded-2xl px-6 py-4 flex items-center justify-between border-glass-border shadow-2xl relative">
         {/* Animated background glow */}
         <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5 opacity-30 blur-xl -z-10 animate-pulse" />
-        
+
         <Link href="/" className="flex items-center gap-2 group">
           <div className="bg-iridescent p-2 rounded-xl group-hover:scale-110 transition-transform duration-300">
             <Palette className="w-6 h-6 text-white" />
           </div>
-          <span 
+          <span
             className="text-2xl font-bold font-heading bg-clip-text text-transparent"
             style={{ backgroundImage: 'var(--title-gradient)' }}
           >
@@ -46,13 +47,13 @@ export default function Navbar() {
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-8">
           <NavLink href="/studio" icon={<Sparkles className="w-4 h-4" />} label="Studio" />
-          <NavLink href="/gallery" icon={<Library className="w-4 h-4" />} label="Gallery" />
+          <GalleryDropdown />
           <NavLink href="/pricing" icon={<Sparkles className="w-4 h-4" />} label="Pricing" />
         </div>
 
         <div className="flex items-center gap-4">
           <ThemeToggle />
-          
+
           <div className="flex items-center gap-4 min-w-[100px] justify-end">
             {!isLoaded ? (
               <div className="flex items-center gap-2 p-1">
@@ -97,5 +98,68 @@ function NavLink({ href, icon, label }: { href: string; icon: React.ReactNode; l
       {label}
       <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
     </Link>
+  );
+}
+
+function GalleryDropdown() {
+  const [open, setOpen] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Brief close delay so brushing the cursor between trigger and menu doesn't dismiss it
+  const handleEnter = () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    setOpen(true);
+  };
+  const handleLeave = () => {
+    closeTimerRef.current = setTimeout(() => setOpen(false), 120);
+  };
+
+  return (
+    <div className="relative" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
+      <Link
+        href="/coloring-pages"
+        className="flex items-center gap-2 text-sm font-semibold text-text-muted hover:text-primary transition-colors relative group"
+      >
+        <Library className="w-4 h-4" />
+        Gallery
+        <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", open && "rotate-180")} />
+        <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
+      </Link>
+
+      {open && (
+        <div className="absolute left-1/2 -translate-x-1/2 top-full pt-4">
+          <div className="w-[420px] glass rounded-2xl border border-glass-border shadow-2xl p-3 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="grid grid-cols-2 gap-1">
+              {CATEGORIES.map(cat => {
+                const count = themesByCategory(cat.slug).length;
+                return (
+                  <Link
+                    key={cat.slug}
+                    href={`/coloring-pages/${cat.slug}`}
+                    className="group/item flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl hover:bg-primary/5 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold text-foreground group-hover/item:text-primary transition-colors truncate">
+                        {cat.title}
+                      </div>
+                      <div className="text-[10px] text-text-muted uppercase tracking-widest font-bold">
+                        {count} {count === 1 ? "page" : "pages"}
+                      </div>
+                    </div>
+                    <ArrowRight className="w-3.5 h-3.5 text-text-muted/40 group-hover/item:text-primary group-hover/item:translate-x-0.5 transition-all shrink-0" />
+                  </Link>
+                );
+              })}
+            </div>
+            <Link
+              href="/coloring-pages"
+              className="block mt-2 px-3 py-2 rounded-xl bg-primary/5 hover:bg-primary/10 text-center text-xs font-bold uppercase tracking-widest text-primary transition-colors"
+            >
+              Browse all coloring pages →
+            </Link>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
